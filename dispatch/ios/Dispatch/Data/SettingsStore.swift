@@ -87,6 +87,7 @@ final class SettingsStore: ObservableObject {
         static let steamItemsPerGame = "settings.steamItemsPerGame"
         static let steamMaxGames = "settings.steamMaxGames"
         static let hasSteamKey = "settings.hasSteamKey"
+        static let showSortingEvidence = "settings.showSortingEvidence"
     }
 
     private let defaults: UserDefaults
@@ -117,6 +118,16 @@ final class SettingsStore: ObservableObject {
 
     @Published var hideRead: Bool {
         didSet { defaults.set(hideRead, forKey: Key.hideRead) }
+    }
+
+    /// Whether the reader prints the terms that decided a story's topic.
+    ///
+    /// On by default. The sorting is a heuristic, and a heuristic that cannot
+    /// be questioned is just a black box that is sometimes wrong — seeing that
+    /// a piece landed in Markets because of "yields" and "basis points" is what
+    /// makes a misfile a lexicon fix rather than a shrug.
+    @Published var showSortingEvidence: Bool {
+        didSet { defaults.set(showSortingEvidence, forKey: Key.showSortingEvidence) }
     }
 
     @Published var itemsPerSource: Int {
@@ -173,6 +184,7 @@ final class SettingsStore: ObservableObject {
         steamItemsPerGame = defaults.object(forKey: Key.steamItemsPerGame) as? Int ?? 3
         steamMaxGames = defaults.object(forKey: Key.steamMaxGames) as? Int ?? 12
         hasSteamKey = defaults.bool(forKey: Key.hasSteamKey)
+        showSortingEvidence = defaults.object(forKey: Key.showSortingEvidence) as? Bool ?? true
 
         if let data = defaults.data(forKey: Key.xBridge),
            let decoded = try? JSONDecoder().decode(XBridge.self, from: data) {

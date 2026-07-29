@@ -1,10 +1,17 @@
 import SwiftUI
 
-/// One section's merged feed.
-struct SectionScreen: View {
+/// The list of stories under a topic, with whatever furniture that topic wants
+/// above it.
+///
+/// All four screens share this. What differs between them is the header — a
+/// live rail, a pair of price cards, a release calendar — and the accent
+/// colour, so those are the only things passed in. Everything below the header
+/// is the same reading experience wherever you are in the app.
+struct TopicFeedList<Header: View>: View {
 
-    let section: FeedSection
+    let topic: Topic
     @Binding var webLink: WebLink?
+    @ViewBuilder var header: () -> Header
 
     @EnvironmentObject private var catalog: CatalogStore
     @EnvironmentObject private var feed: FeedStore
@@ -12,39 +19,25 @@ struct SectionScreen: View {
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var steamLibrary: SteamLibraryStore
 
-    private var sources: [Source] { catalog.sources(in: section.id) }
-    private var articles: [Article] { feed.merged(sources: sources) }
+    private var sources: [Source] { catalog.sources(reaching: topic) }
+    private var articles: [Article] { feed.articles(for: topic, from: sources) }
 
     private var visibleArticles: [Article] {
         guard settings.hideRead else { return articles }
-        // An article opened a moment ago should not vanish under the finger,
-        // so "hide read" filters on what was read *before* this screenful —
-        // approximated by keeping saved items, which is where a just-read
-        // article most often ends up.
         return articles.filter { !read.isRead($0) || read.isSaved($0) }
     }
 
     private var phase: LoadPhase { feed.phase(for: sources) }
 
     var body: some View {
-        Group {
-            if sources.isEmpty {
-                StateView(
-                    systemImage: "tray",
-                    title: "No sources in \(section.title)",
-                    message: "Add one in Settings › Sources, or turn one back on."
-                )
-            } else if visibleArticles.isEmpty {
-                emptyState
-            } else {
-                list
-            }
-        }
-        .refreshable { await refresh(force: true) }
-    }
-
-    private var list: some View {
         List {
+            Section {
+                header()
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+            }
+
             let advisories = feed.advisories(for: sources)
             if !advisories.isEmpty {
                 AdvisoryBanner(lines: advisories)
@@ -53,30 +46,34 @@ struct SectionScreen: View {
                     .listRowBackground(Color.clear)
             }
 
-            ForEach(visibleArticles) { article in
-                row(for: article)
-                    .articleActions(article) { webLink = WebLink(url: $0) }
+            if visibleArticles.isEmpty {
+                emptyState
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+            } else {
+                ForEach(visibleArticles) { article in
+                    row(for: article)
+                        .articleActions(article) { webLink = WebLink(url: $0) }
+                }
             }
 
-            // Breathing room under the last row, so the final headline is not
-            // flush against the tab bar.
             Color.clear
                 .frame(height: 12)
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
         }
         .listStyle(.plain)
+        .refreshable { await refresh(force: true) }
     }
 
     @ViewBuilder
     private func row(for article: Article) -> some View {
         let source = catalog.source(id: article.sourceID)
-        let name = source?.name ?? "Dispatch"
-        let style = source?.style ?? .article
         let content = ArticleRow(article: article,
-                                 sourceName: name,
-                                 style: style,
-                                 isRead: read.isRead(article))
+                                 sourceName: source?.name ?? "Dispatch",
+                                 style: source?.style ?? .article,
+                                 isRead: read.isRead(article),
+                                 accent: TopicTheme.accent(topic))
 
         // Which of these two a tap does is a setting, so the row itself has to
         // be a different view — wrapping a NavigationLink in a Button that
@@ -98,36 +95,42 @@ struct SectionScreen: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if phase.isBusy {
+        if sources.isEmpty {
+            StateView(
+                systemImage: "tray",
+                title: "No sources feeding \(topic.title)",
+                message: "Turn one on in More › Sources."
+            )
+        } else if phase.isBusy {
             StateView(systemImage: "arrow.triangle.2.circlepath",
-                      title: "Loading \(section.title)…")
+                      title: "Loading \(topic.title)…")
         } else if settings.hideRead && !articles.isEmpty {
             StateView(
                 systemImage: "checkmark.circle",
                 title: "All caught up",
-                message: "Every story in \(section.title) has been read. Pull down to check for more.",
+                message: "Everything in \(topic.title) has been read.",
                 actionTitle: "Show read stories",
                 action: { settings.hideRead = false }
             )
         } else if let message = phase.errorMessage {
             StateView(
                 systemImage: "antenna.radiowaves.left.and.right.slash",
-                title: "\(section.title) is quiet",
+                title: "\(topic.title) is quiet",
                 message: message,
                 actionTitle: "Try again",
                 action: { Task { await refresh(force: true) } }
             )
-        } else if section.id == "gaming" && steamLibrary.games.isEmpty {
+        } else if topic == .gaming && steamLibrary.games.isEmpty {
             StateView(
                 systemImage: "gamecontroller",
-                title: "No games yet",
-                message: "Add your Steam library in Settings › Steam to get patch notes and "
-                    + "announcements for the games you actually play."
+                title: "Nothing yet",
+                message: "Add your Steam library in More › Steam for patch notes on the games "
+                    + "you actually play."
             )
         } else {
             StateView(
                 systemImage: "newspaper",
-                title: "Nothing here yet",
+                title: "Nothing sorted here yet",
                 message: "Pull down to refresh.",
                 actionTitle: "Refresh",
                 action: { Task { await refresh(force: true) } }
@@ -141,6 +144,12 @@ struct SectionScreen: View {
             environment: settings.loadEnvironment(games: steamLibrary.activeGames),
             force: force
         )
+    }
+}
+
+extension TopicFeedList where Header == EmptyView {
+    init(topic: Topic, webLink: Binding<WebLink?>) {
+        self.init(topic: topic, webLink: webLink) { EmptyView() }
     }
 }
 
@@ -159,5 +168,33 @@ extension SettingsStore {
             itemsPerSource: itemsPerSource,
             staleAfter: refreshInterval.seconds
         )
+    }
+}
+
+/// The heading above a topic's furniture.
+struct TopicHeader: View {
+
+    let topic: Topic
+    let subtitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Image(systemName: topic.systemImage)
+                    .font(.system(size: 12, weight: .bold))
+                Text(topic.title.uppercased())
+                    .font(.system(size: 12, weight: .heavy))
+                    .tracking(0.8)
+            }
+            .foregroundStyle(TopicTheme.accent(topic))
+
+            Text(subtitle)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
     }
 }

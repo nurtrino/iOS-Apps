@@ -16,37 +16,36 @@ struct SavedScreen: View {
     @State private var confirmingClear = false
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if read.saved.isEmpty {
-                    StateView(
-                        systemImage: "bookmark",
-                        title: "Nothing saved",
-                        message: "Swipe a headline, or use the bookmark button while reading."
-                    )
-                } else {
-                    list
-                }
+        Group {
+            if read.saved.isEmpty {
+                StateView(
+                    systemImage: "bookmark",
+                    title: "Nothing saved",
+                    message: "Swipe a headline, or use the bookmark button while reading."
+                )
+            } else {
+                list
             }
-            .navigationTitle("Saved")
-            .toolbar {
-                if !read.saved.isEmpty {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(role: .destructive) {
-                            confirmingClear = true
-                        } label: {
-                            Image(systemName: "trash")
-                        }
+        }
+        .navigationTitle("Saved")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !read.saved.isEmpty {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(role: .destructive) {
+                        confirmingClear = true
+                    } label: {
+                        Image(systemName: "trash")
                     }
                 }
             }
-            .navigationDestination(for: Article.self) { ArticleScreen(article: $0) }
-            .confirmationDialog("Remove all saved articles?",
-                                isPresented: $confirmingClear,
-                                titleVisibility: .visible) {
-                Button("Remove \(read.saved.count)", role: .destructive) { read.clearSaved() }
-                Button("Cancel", role: .cancel) {}
-            }
+        }
+        .navigationDestination(for: Article.self) { ArticleScreen(article: $0) }
+        .confirmationDialog("Remove all saved articles?",
+                            isPresented: $confirmingClear,
+                            titleVisibility: .visible) {
+            Button("Remove \(read.saved.count)", role: .destructive) { read.clearSaved() }
+            Button("Cancel", role: .cancel) {}
         }
         .sheet(item: $webLink) { link in
             SafariSheet(url: link.url).ignoresSafeArea()

@@ -14,6 +14,7 @@ struct ArticleRow: View {
     let sourceName: String
     let style: SourceStyle
     let isRead: Bool
+    var accent: Color = Palette.accent
 
     @EnvironmentObject private var settings: SettingsStore
 
@@ -21,12 +22,12 @@ struct ArticleRow: View {
         switch style {
         case .article:
             if settings.compactRows {
-                WireRow(article: article, sourceName: sourceName, isRead: isRead)
+                WireRow(article: article, sourceName: sourceName, isRead: isRead, accent: accent)
             } else {
-                FeatureRow(article: article, sourceName: sourceName, isRead: isRead)
+                FeatureRow(article: article, sourceName: sourceName, isRead: isRead, accent: accent)
             }
         case .wire:
-            WireRow(article: article, sourceName: sourceName, isRead: isRead)
+            WireRow(article: article, sourceName: sourceName, isRead: isRead, accent: accent)
         }
     }
 }
@@ -37,6 +38,7 @@ struct FeatureRow: View {
     let article: Article
     let sourceName: String
     let isRead: Bool
+    var accent: Color = Palette.accent
 
     @EnvironmentObject private var settings: SettingsStore
 
@@ -45,7 +47,8 @@ struct FeatureRow: View {
             SourceBadge(sourceName: sourceName,
                         context: article.context,
                         age: article.published?.feedAge,
-                        isUnread: !isRead)
+                        isUnread: !isRead,
+                        accent: accent)
 
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
@@ -87,6 +90,7 @@ struct WireRow: View {
     let article: Article
     let sourceName: String
     let isRead: Bool
+    var accent: Color = Palette.accent
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -100,7 +104,8 @@ struct WireRow: View {
             SourceBadge(sourceName: sourceName,
                         context: article.context,
                         age: article.published?.feedAge,
-                        isUnread: !isRead)
+                        isUnread: !isRead,
+                        accent: accent)
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())

@@ -1,21 +1,97 @@
 # Dispatch
 
-A news reader for a specific set of sources, split into sections you swipe
-between. No account, no server in between, no tracking — the app talks to the
-publishers directly from the device.
+Four news apps in one, split by subject. Each topic is its own place with its
+own furniture — no combined feed, no shared template. No account, no server in
+between, no tracking: the app talks to the publishers directly from the device.
 
-| Section | Sources |
+| Tab | What is on it |
 | --- | --- |
-| **Top** | Everything below, merged and sorted newest first |
-| **Wire** | ZeroHedge, as quick headlines |
-| **Markets** | ZeroHedge, full articles |
-| **Front Page** | Citizen Free Press |
-| **Defense** | The War Zone, WarFront Witness (Telegram) |
-| **Gaming** | Steam news for your library, gaming X accounts |
+| **War** | Live stream rail, the WarFront Witness Telegram wire, The War Zone, and anything else sorted here |
+| **Politics** | Everything the classifier files as politics |
+| **Markets** | BTC and S&P 500 with sparklines, the US release calendar, then the economics feed |
+| **Gaming** | Steam news for your library, Wario64, Pirat Nation, CharlieIntel |
+| **More** | Saved, Search, Sources, Streams, Steam, Settings |
 
-Sections and sources are both editable — rename them, reorder them, add your
-own, move a source from one section to another. The list above is the default,
-not a fixture.
+## Sorting: how a story finds its section
+
+Two of the sources only ever publish one thing — The War Zone is defense,
+CharlieIntel is Call of Duty — so those are routed by declaration and can never
+be misfiled. ZeroHedge and Citizen Free Press publish across all three of War,
+Politics and Markets, and those are scored per story.
+
+The scorer is a **weighted lexicon**, not a language model, and that is a
+deliberate choice worth stating plainly. An on-device model big enough to beat a
+tuned keyword list would add tens of megabytes and a second of latency per
+refresh; a hosted one would mean shipping an API key and sending every headline
+you read to a third party. The lexicon runs in microseconds, works offline, and
+— the part that actually matters — is inspectable and testable, so a misfile is
+a term to adjust rather than a shrug.
+
+Three things make it better than a naive keyword match:
+
+- **Phrases outrank words.** The words that belong to two topics at once are
+  exactly the ones a naive matcher fumbles. "Strike" scores almost nothing
+  alone; "air strike" and "authorize strike" score a lot, in opposite
+  directions. Same for "bank" versus "central bank" versus "West Bank".
+- **The headline outweighs the body**, 2.2 to 1. A markets piece that mentions
+  Ukraine in its fourth paragraph is still a markets piece.
+- **Distinct terms, not occurrences.** One repeated word in a long article
+  cannot outvote five different signals in a short one.
+
+Below a minimum score nothing is asserted — the story falls back to the
+source's declared default and says so. Every article's reader shows the terms
+that decided it ("Markets — yields, basis points"), which can be turned off in
+Settings but is on by default: a heuristic nobody can question is just a black
+box that is sometimes wrong.
+
+The lexicon lives in `ios/Dispatch/Net/TopicLexicon.swift` and is **parsed
+directly by the tests** rather than copied into them, so the table the tests
+exercise is always the table the app ships.
+
+## Live streams
+
+The War tab watches three YouTube channels and reports which are on:
+
+| Channel | Schedule |
+| --- | --- |
+| Mario Nawfal | Checked whenever the tab is open |
+| Lookner | Checked whenever the tab is open |
+| The Enforcer | Nightly except Monday, default 22:00 ET — editable |
+
+Live status is checked for real, not guessed: the app loads the channel's
+`/live` page and reads whether what it landed on is broadcasting. It fails
+closed — anything ambiguous reports "not live", because a card that falsely
+says LIVE is worse than one that misses a stream by a minute. A schedule only
+decides *when to start checking*, so a show time being slightly wrong costs a
+late card rather than a wrong one.
+
+Streams play in-app through the official YouTube embed in a `WKWebView`. That is
+not a shortcut — it is the only legitimate option, since YouTube's media URLs
+are signed, short-lived and explicitly not for third-party players.
+
+**X livestreams cannot be detected.** There is no unauthenticated way to ask
+whether an X account is live, so the Mario Nawfal X card (off by default) always
+opens X rather than claiming to know.
+
+## Markets data
+
+| What | Source | Fallback |
+| --- | --- | --- |
+| Bitcoin | Coinbase public candles, 15-minute buckets | — |
+| S&P 500 | Yahoo Finance chart endpoint, 5-minute buckets | Stooq daily CSV |
+
+Both are public and need no key, and neither promises to stay that way — so the
+card names whichever provider answered.
+
+The **economic calendar is generated on device**. There is no free calendar API
+worth depending on, but most of what matters is a rule rather than a feed:
+jobless claims every Thursday at 8:30, payrolls the first Friday, ISM on the
+first business day. Those are exact. The releases that genuinely drift — CPI,
+PPI, retail sales, PCE — are marked with a `~` and shown as approximate,
+because a calendar that renders a guess and a published date identically is
+worse than no calendar. FOMC dates come from the Fed's published schedule,
+shipped as a table; `precheck.py` fails once that table is close to running out
+so it cannot quietly go stale.
 
 ## How each source is read
 
@@ -61,7 +137,9 @@ real RSS feed and says so with a one-line note under the section header:
 | X source | Falls back to |
 | --- | --- |
 | ZeroHedge Wire (`@zerohedge`) | ZeroHedge's own full feed |
-| Gaming Wire (`@Wario64`) | PC Gamer, then Rock Paper Shotgun |
+| Wario64 | PC Gamer, then Rock Paper Shotgun |
+| Pirat Nation (`@Pirat_Nation`) | Eurogamer |
+| CharlieIntel (`@charlieINTEL`) | charlieintel.com |
 | Genki (`@Genki_JPN`, off by default) | Gematsu |
 
 For ZeroHedge that is the same newsroom — the site feed rather than the
@@ -71,7 +149,7 @@ timeline — so the Wire section is genuinely useful out of the box.
 
 Two routes, and the manual one needs no credentials at all.
 
-**By API key.** Settings › Steam, paste a key from
+**By API key.** More › Steam, paste a key from
 [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey), enter
 your Steam ID or profile name, and sync. The key is stored in the iOS Keychain
 (`ThisDeviceOnly`, so it does not travel in a backup) and is sent only to Valve.
@@ -94,10 +172,12 @@ it.
 
 ```
 ios/Dispatch/
-  Model/      Article, Source, FeedSection, LoadPhase
-  Net/        HTTP, feed parsing, HTML handling, per-source loaders
-  Data/       stores — catalog, feeds, read state, settings, Steam library
-  UI/         SwiftUI screens
+  Model/      Article, Source, Topic, LiveChannel, LoadPhase
+  Net/        HTTP, feed parsing, HTML handling, the classifier and its
+              lexicon, YouTube live checks, market endpoints
+  Data/       stores — catalog, feeds, live, markets, calendar, read state,
+              settings, Steam library
+  UI/         SwiftUI screens, one per topic plus shared furniture
   Media/      image loading
 tools/
   gen_pbxproj.py     writes the Xcode project from what is on disk
@@ -137,6 +217,13 @@ cases that actually break feed readers:
 - Dates in the eight formats feeds actually use. An unparsed date sorts to the
   bottom of a merged feed, so a source with an unhandled format looks like it
   stopped updating.
+- Topic sorting, against the shipped lexicon: the clear cases, and every
+  ambiguous word that a naive matcher gets backwards — air strike versus strike
+  authorization, West Bank versus central bank, campaign rally versus market
+  rally, tariffs on a political outlet.
+- Classifier normalisation. Two bugs came out of writing those: `Powell's`
+  normalised to `powells` and matched nothing, and a headline spelling it
+  `air-strike` never matched the phrase `air strike`.
 
 The fixtures are hand-constructed — this build environment's egress policy
 blocks every one of these hosts, so nothing was captured live. Anything that
@@ -146,8 +233,9 @@ sample and the Swift updated in step.
 `precheck.py` also catches, without a compiler: unbalanced brackets, trailing
 commas before `)` (legal in Swift 6.1, not in Swift 5), API that postdates the
 iOS 16 deployment target, a source file missing from the Xcode project, a
-background-task identifier that does not match Info.plist, and duplicate catalog
-ids.
+background-task identifier that does not match Info.plist, duplicate catalog
+ids, a lexicon line the test parser would silently skip, and an FOMC table
+running out.
 
 ## Build
 

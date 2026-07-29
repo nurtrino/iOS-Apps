@@ -836,3 +836,130 @@ def parse_date(raw):
     if seconds > 100_000_000:
         return datetime.fromtimestamp(seconds, tz=timezone.utc)
     return None
+
+
+# --- Topic classification --------------------------------------------------
+#
+# The lexicon is *read out of the Swift* rather than copied here. Two hundred
+# weighted terms maintained in two files would diverge within a week, and the
+# divergence would be invisible: the tests would keep passing against a table
+# the app no longer uses. Parsing the real one means a term added to the app is
+# a term the tests see.
+
+import os
+
+LEXICON_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "ios", "Dispatch", "Net", "TopicLexicon.swift",
+)
+
+TITLE_WEIGHT = 2.2
+MINIMUM_SCORE = 3.0
+DECISIVE_MARGIN = 0.35
+SOURCE_PRIOR_WEIGHT = 1.25
+
+TERM_RE = re.compile(r'\("([^"]+)",\s*([0-9.]+)\)')
+
+
+def load_lexicon(path=LEXICON_PATH):
+    """Mirrors TopicLexicon. Returns {topic: [(term, weight), ...]}."""
+    source = open(path, encoding="utf-8").read()
+    tables = {}
+    for topic in ("war", "politics", "economics"):
+        marker = "static let %s: [(String, Double)] = [" % topic
+        start = source.index(marker) + len(marker)
+        end = source.index("]", start)
+        tables[topic] = [(term, float(weight))
+                         for term, weight in TERM_RE.findall(source[start:end])]
+    return tables
+
+
+def build_lexicon(terms):
+    """Mirrors TopicClassifier.build — words and phrases split apart."""
+    words, phrases = {}, []
+    for term, weight in terms:
+        if " " in term:
+            phrases.append((term, term.split(" ", 1)[0], weight))
+        else:
+            words[term] = max(words.get(term, 0.0), weight)
+    return words, phrases
+
+
+def normalise(text):
+    """Mirrors TopicClassifier.normalise."""
+    out = []
+    for char in text.lower():
+        if char.isalnum() or char in ("-", "&"):
+            out.append(char)
+        else:
+            out.append(" ")
+    return " ".join("".join(out).split())
+
+
+def field(raw):
+    """Mirrors TopicClassifier.field. Returns (text, loose, words)."""
+    text = normalise(raw)
+    if "-" not in text:
+        return text, text, tokens(text)
+    loose = normalise(text.replace("-", " "))
+    return text, loose, tokens(text) | tokens(loose)
+
+
+def tokens(normalised):
+    """Mirrors TopicClassifier.tokens."""
+    return set(normalised.split(" ")) if normalised else set()
+
+
+def classify(title, body, prior, fallback, tables=None):
+    """Mirrors TopicClassifier.classify.
+
+    Returns (topic, confidence, evidence, is_fallback).
+    """
+    tables = tables if tables is not None else load_lexicon()
+
+    title_text, title_loose, title_words = field(title)
+    body_text, body_loose, body_words = field(body[:1400])
+
+    scores, hits = {}, {}
+
+    for topic in ("war", "politics", "economics"):
+        words, phrases = build_lexicon(tables[topic])
+        score = 0.0
+        matched = []
+
+        for word, weight in words.items():
+            if word in title_words:
+                score += weight * TITLE_WEIGHT
+                matched.append((word, weight * TITLE_WEIGHT))
+            elif word in body_words:
+                score += weight
+                matched.append((word, weight))
+
+        for phrase, head, weight in phrases:
+            in_title = head in title_words
+            in_body = head in body_words
+            if not (in_title or in_body):
+                continue
+            if in_title and (phrase in title_text or phrase in title_loose):
+                score += weight * TITLE_WEIGHT
+                matched.append((phrase, weight * TITLE_WEIGHT))
+            elif in_body and (phrase in body_text or phrase in body_loose):
+                score += weight
+                matched.append((phrase, weight))
+
+        scores[topic] = score
+        hits[topic] = matched
+
+    if prior:
+        scores[prior] = scores.get(prior, 0.0) + SOURCE_PRIOR_WEIGHT
+
+    ranked = sorted(scores.items(), key=lambda pair: (-pair[1], pair[0]))
+    winner, top = ranked[0]
+
+    if top < MINIMUM_SCORE:
+        return fallback, 0.0, [], True
+
+    runner_up = ranked[1][1] if len(ranked) > 1 else 0.0
+    margin = (top - runner_up) / top
+    evidence = [term for term, _ in sorted(hits[winner], key=lambda pair: -pair[1])[:4]]
+    return winner, min(1.0, margin / DECISIVE_MARGIN), evidence, False

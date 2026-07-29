@@ -13,6 +13,8 @@ struct DispatchApp: App {
     @StateObject private var feed = FeedStore()
     @StateObject private var read = ReadStore()
     @StateObject private var steamLibrary = SteamLibraryStore()
+    @StateObject private var live = LiveStore()
+    @StateObject private var markets = MarketStore()
 
     var body: some Scene {
         WindowGroup {
@@ -22,6 +24,8 @@ struct DispatchApp: App {
                 .environmentObject(feed)
                 .environmentObject(read)
                 .environmentObject(steamLibrary)
+                .environmentObject(live)
+                .environmentObject(markets)
                 .preferredColorScheme(settings.theme.colorScheme)
                 .tint(Palette.accent)
                 .onAppear { BackgroundRefresh.schedule() }

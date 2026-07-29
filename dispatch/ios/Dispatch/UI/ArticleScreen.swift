@@ -12,6 +12,7 @@ struct ArticleScreen: View {
     let article: Article
 
     @EnvironmentObject private var catalog: CatalogStore
+    @EnvironmentObject private var feed: FeedStore
     @EnvironmentObject private var read: ReadStore
     @EnvironmentObject private var settings: SettingsStore
 
@@ -91,8 +92,42 @@ struct ArticleScreen: View {
             }
             .font(.system(size: 13))
             .foregroundStyle(.secondary)
+
+            sortingLine
         }
         .padding(.top, 8)
+    }
+
+    /// Why this story is in the section it is in.
+    ///
+    /// Shown because the sorting is a heuristic and a heuristic nobody can
+    /// question is just a black box that is occasionally wrong. Seeing that a
+    /// piece landed in Markets on "yields" and "basis points" turns a misfile
+    /// into a lexicon fix.
+    @ViewBuilder
+    private var sortingLine: some View {
+        if settings.showSortingEvidence, let verdict = feed.verdict(for: article) {
+            HStack(spacing: 5) {
+                Image(systemName: verdict.isFallback
+                      ? "questionmark.circle"
+                      : verdict.topic.systemImage)
+                    .font(.system(size: 10, weight: .semibold))
+
+                if verdict.isFallback {
+                    Text("Filed under \(verdict.topic.title) by default")
+                } else if verdict.evidence.isEmpty {
+                    Text("\(verdict.topic.title) — this source only publishes \(verdict.topic.title.lowercased())")
+                } else {
+                    Text("\(verdict.topic.title) — \(verdict.evidence.joined(separator: ", "))")
+                }
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(TopicTheme.accent(verdict.topic))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(TopicTheme.wash(verdict.topic), in: Capsule())
+            .padding(.top, 2)
+        }
     }
 
     @ViewBuilder

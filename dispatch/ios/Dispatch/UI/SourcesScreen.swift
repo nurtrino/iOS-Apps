@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The source list, grouped by the section each one feeds.
+/// The source list, grouped by where each one files its stories.
 struct SourcesScreen: View {
 
     @EnvironmentObject private var catalog: CatalogStore
@@ -8,48 +8,52 @@ struct SourcesScreen: View {
 
     @State private var newSource: Source?
 
+    /// Sources whose topic is decided per story, listed apart from the fixed
+    /// ones because "which section is this in" has no single answer for them.
+    private var classifiedSources: [Source] {
+        catalog.sources.filter { $0.topicMode == .classified }
+    }
+
     var body: some View {
         List {
-            // Top is a view over every other section rather than a section
-            // sources are filed under, so it never has a list of its own.
-            ForEach(catalog.sections.filter { $0.id != SectionCatalog.topID }) { section in
+            if !classifiedSources.isEmpty {
                 Section {
-                    let sources = catalog.sources(in: section.id, includeDisabled: true)
-                        .filter { $0.sectionID == section.id }
-
-                    if sources.isEmpty {
-                        Text("No sources")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.tertiary)
-                    } else {
-                        ForEach(sources) { source in
-                            NavigationLink {
-                                SourceEditor(source: source)
-                            } label: {
-                                row(for: source)
-                            }
-                        }
-                        .onMove { offsets, destination in
-                            catalog.moveSources(in: section.id, from: offsets, to: destination)
-                        }
+                    ForEach(classifiedSources) { source in
+                        NavigationLink { SourceEditor(source: source) } label: { row(for: source) }
                     }
                 } header: {
-                    Label(section.title, systemImage: section.systemImage)
+                    Label("Sorted per story", systemImage: "arrow.triangle.branch")
+                } footer: {
+                    Text("These publish more than one kind of news, so each story is scored and "
+                         + "filed into War, Politics or Markets on its own.")
+                }
+            }
+
+            ForEach(Topic.allCases) { topic in
+                let sources = catalog.sourcesFiled(under: topic)
+                    .filter { $0.topicMode == .fixed }
+
+                if !sources.isEmpty {
+                    Section {
+                        ForEach(sources) { source in
+                            NavigationLink { SourceEditor(source: source) } label: { row(for: source) }
+                        }
+                        .onMove { offsets, destination in
+                            catalog.moveSources(filedUnder: topic, from: offsets, to: destination)
+                        }
+                    } header: {
+                        Label(topic.title, systemImage: topic.systemImage)
+                    }
                 }
             }
         }
         .navigationTitle("Sources")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    newSource = Source(
-                        id: "",
-                        name: "",
-                        kind: .rss,
-                        sectionID: catalog.sections.first(where: { $0.id != SectionCatalog.topID })?.id
-                            ?? SectionCatalog.topID,
-                        endpoint: ""
-                    )
+                    newSource = Source(id: "", name: "", kind: .rss, endpoint: "",
+                                       topicMode: .fixed, fixedTopic: .politics)
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -70,7 +74,9 @@ struct SourcesScreen: View {
             Image(systemName: source.kind.systemImage)
                 .font(.system(size: 13))
                 .frame(width: 22)
-                .foregroundStyle(source.isEnabled ? Palette.accent : Color.secondary)
+                .foregroundStyle(source.isEnabled
+                                 ? TopicTheme.accent(source.fixedTopic)
+                                 : Color.secondary)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(source.name)
@@ -150,18 +156,46 @@ struct SourceEditor: View {
                 Text(endpointHelp)
             }
 
-            Section("Placement") {
-                Picker("Section", selection: $source.sectionID) {
-                    ForEach(catalog.sections.filter { $0.id != SectionCatalog.topID }) { section in
-                        Text(section.title).tag(section.id)
+            Section {
+                Picker("Topic", selection: $source.topicMode) {
+                    ForEach(TopicMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
                     }
                 }
+
+                Picker(source.topicMode == .fixed ? "Files under" : "When unsure, file under",
+                       selection: $source.fixedTopic) {
+                    ForEach(Topic.allCases) { topic in
+                        Label(topic.title, systemImage: topic.systemImage).tag(topic)
+                    }
+                }
+
+                if source.topicMode == .classified {
+                    Picker("Usually about", selection: Binding(
+                        get: { source.topicPrior ?? source.fixedTopic },
+                        set: { source.topicPrior = $0 }
+                    )) {
+                        ForEach(Topic.classifiable) { topic in
+                            Text(topic.title).tag(topic)
+                        }
+                    }
+                }
+
                 Picker("Row style", selection: $source.style) {
                     ForEach(SourceStyle.allCases) { style in
                         Text(style.title).tag(style)
                     }
                 }
+
                 Toggle("Enabled", isOn: $source.isEnabled)
+            } header: {
+                Text("Filing")
+            } footer: {
+                Text(source.topicMode == .fixed
+                     ? "Everything from this source goes to \(source.fixedTopic.title). Right for a "
+                       + "source that only ever publishes one kind of news."
+                     : "Each story is scored against the War, Politics and Markets vocabularies "
+                       + "and filed by whichever wins. “Usually about” breaks ties.")
             }
 
             if source.kind != .steam {
@@ -220,6 +254,7 @@ struct SourceEditor: View {
                     Button("Reset to default") {
                         catalog.resetToDefault(sourceID: source.id)
                         if let fresh = catalog.source(id: source.id) { source = fresh }
+                        feed.reclassify(sources: catalog.sources)
                         testResult = nil
                     }
                 }
@@ -253,6 +288,10 @@ struct SourceEditor: View {
         .onChange(of: source) { updated in
             guard !isNew else { return }
             catalog.update(updated)
+            // Changing how a source files its stories has to re-file the ones
+            // already loaded, or the change appears to do nothing until the
+            // next refresh.
+            feed.reclassify(sources: catalog.sources)
         }
         .confirmationDialog(
             source.isBuiltIn ? "Turn off \(source.name)?" : "Delete \(source.name)?",
@@ -293,7 +332,7 @@ struct SourceEditor: View {
             return "A handle, with or without the @. Reading X needs a bridge — see Settings › X "
                 + "bridge. Without one, the backup feeds below are used instead."
         case .steam:
-            return "Pulls news for the games in your library. Manage it in Settings › Steam."
+            return "Pulls news for the games in your library. Manage it in More › Steam."
         }
     }
 
@@ -311,6 +350,19 @@ struct SourceEditor: View {
             )
             var lines = "Loaded \(result.articles.count) item\(result.articles.count == 1 ? "" : "s")."
             if let note = result.note { lines += "\n" + note }
+
+            // For a classified source, showing where the sample actually landed
+            // is the fastest way to see whether the filing is sane.
+            if source.topicMode == .classified, !result.articles.isEmpty {
+                var counts: [Topic: Int] = [:]
+                for article in result.articles {
+                    counts[article.classified(using: source).topic, default: 0] += 1
+                }
+                let summary = Topic.classifiable
+                    .compactMap { topic in counts[topic].map { "\(topic.title) \($0)" } }
+                    .joined(separator: " · ")
+                if !summary.isEmpty { lines += "\nSorted: " + summary }
+            }
             if let newest = result.articles.first {
                 lines += "\nNewest: \(newest.displayTitle.prefix(80))"
             }

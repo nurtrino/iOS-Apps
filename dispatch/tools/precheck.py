@@ -335,6 +335,88 @@ def check_catalog_ids():
         fail("Source.swift: duplicate catalog ids %s" % sorted(duplicates))
 
 
+def check_fomc_table():
+    """The Fed calendar is shipped as a table and has to be extended each year.
+
+    Nothing about a stale table looks broken from inside the app — the Markets
+    calendar simply stops listing rate decisions, which reads as "no meetings
+    coming up" rather than "this data ran out". So it is checked here, with
+    enough warning to do something about it.
+    """
+    path = os.path.join(REPO, "ios", "Dispatch", "Data", "EconCalendar.swift")
+    if not os.path.exists(path):
+        fail("Data/EconCalendar.swift is missing")
+        return
+
+    with open(path, encoding="utf-8") as handle:
+        source = handle.read()
+
+    entries = re.findall(
+        r"DateComponents\(year:\s*(\d{4}),\s*month:\s*(\d{1,2}),\s*day:\s*(\d{1,2})\)", source)
+    if not entries:
+        fail("EconCalendar: no FOMC dates found")
+        return
+
+    import datetime
+    dates = sorted(datetime.date(int(y), int(m), int(d)) for y, m, d in entries)
+
+    if dates != [datetime.date(int(y), int(m), int(d)) for y, m, d in entries]:
+        fail("EconCalendar: FOMC dates are not in chronological order")
+
+    # Eight scheduled meetings a year is the Fed's long-standing cadence, so a
+    # year with a different count is a transcription slip.
+    by_year = {}
+    for date in dates:
+        by_year[date.year] = by_year.get(date.year, 0) + 1
+    for year, count in sorted(by_year.items()):
+        if count != 8:
+            fail("EconCalendar: %d has %d FOMC dates, expected 8" % (year, count))
+
+    remaining = (dates[-1] - datetime.date.today()).days
+    if remaining < 0:
+        fail("EconCalendar: every FOMC date is in the past — extend the table")
+    elif remaining < 120:
+        print("note: FOMC table runs out in %d days — extend it soon" % remaining)
+
+
+def check_lexicon():
+    """The classifier tests parse this file, so its shape is load-bearing."""
+    path = os.path.join(REPO, "ios", "Dispatch", "Net", "TopicLexicon.swift")
+    if not os.path.exists(path):
+        fail("Net/TopicLexicon.swift is missing")
+        return
+
+    with open(path, encoding="utf-8") as handle:
+        source = handle.read()
+
+    for topic in ("war", "politics", "economics"):
+        marker = "static let %s: [(String, Double)] = [" % topic
+        if marker not in source:
+            fail("TopicLexicon: %s table is missing or has changed shape — "
+                 "feed_reference.py parses these literally" % topic)
+            continue
+
+        start = source.index(marker) + len(marker)
+        block = source[start:source.index("]", start)]
+        terms = re.findall(r'\("([^"]+)",\s*([0-9.]+)\)', block)
+
+        # A line inside the block that is not a term means something was added
+        # in a shape the parser silently skips.
+        entries = [line for line in block.splitlines() if line.strip()]
+        if len(entries) != len(terms):
+            fail("TopicLexicon: %s has %d lines but %d parsed terms — every line must be "
+                 '("term", weight),' % (topic, len(entries), len(terms)))
+
+        seen = set()
+        for term, _ in terms:
+            if term in seen:
+                fail("TopicLexicon: %s lists %r twice" % (topic, term))
+            seen.add(term)
+            if term != term.lower():
+                fail("TopicLexicon: %r is not lowercased; matching is done on "
+                     "lowercased text so it can never match" % term)
+
+
 def run(label, argv):
     result = subprocess.run(argv, cwd=REPO, capture_output=True, text=True)
     if result.returncode != 0:
@@ -353,6 +435,8 @@ def main():
     check_info_plist()
     check_assets()
     check_catalog_ids()
+    check_lexicon()
+    check_fomc_table()
 
     run("parser tests", [sys.executable, "tools/test_feeds.py"])
     run("project check", [sys.executable, "tools/gen_pbxproj.py", "--check"])

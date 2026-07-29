@@ -9,13 +9,14 @@ struct LoadEnvironment {
     var staleAfter: TimeInterval
 }
 
-/// The articles, per source, and where each source is in its load cycle.
+/// The articles, per source, where each one was filed, and where each source is
+/// in its load cycle.
 ///
-/// Per source rather than per section for one reason: a section is several
-/// sources, and they fail independently. Storing a section's articles as one
-/// blob means a single dead feed either blanks the section or is invisible; a
-/// per-source phase lets the Defense tab show The War Zone's articles while
-/// saying, quietly, that Telegram did not answer.
+/// Per source rather than per topic for one reason: a topic is fed by several
+/// sources, and they fail independently. Storing a topic's articles as one blob
+/// means a single dead feed either blanks the screen or is invisible; a
+/// per-source phase lets War show The War Zone's articles while saying, quietly,
+/// that Telegram did not answer.
 @MainActor
 final class FeedStore: ObservableObject {
 
@@ -23,6 +24,13 @@ final class FeedStore: ObservableObject {
     @Published private(set) var phaseBySource: [String: LoadPhase] = [:]
     @Published private(set) var noteBySource: [String: String] = [:]
     @Published private(set) var fetchedBySource: [String: Date] = [:]
+
+    /// Where the classifier put each article, keyed by article id.
+    ///
+    /// Computed once when articles arrive rather than in the view: a body
+    /// evaluation that re-scored every visible row would re-run the lexicon
+    /// dozens of times per scroll frame.
+    @Published private(set) var verdicts: [String: TopicVerdict] = [:]
 
     /// Guards against the same source being fetched twice at once, which
     /// happens the moment someone pulls to refresh while the on-appear load is
@@ -40,6 +48,7 @@ final class FeedStore: ObservableObject {
             fetchedBySource[source.id] = cache.fetched
             noteBySource[source.id] = cache.note
             phaseBySource[source.id] = .loaded
+            classify(cache.articles, source: source)
         }
     }
 
@@ -68,7 +77,7 @@ final class FeedStore: ObservableObject {
             phaseBySource[source.id] = hasContent ? .refreshing : .loading
         }
 
-        await withTaskGroup(of: (String, Result<SourceLoadResult, Error>).self) { group in
+        await withTaskGroup(of: (Source, Result<SourceLoadResult, Error>).self) { group in
             for source in due {
                 group.addTask {
                     do {
@@ -78,43 +87,64 @@ final class FeedStore: ObservableObject {
                             steam: environment.steam,
                             limit: environment.itemsPerSource
                         )
-                        return (source.id, .success(result))
+                        return (source, .success(result))
                     } catch {
-                        return (source.id, .failure(error))
+                        return (source, .failure(error))
                     }
                 }
             }
 
             // The body of `withTaskGroup` keeps this actor's isolation, so
             // results are applied on the main actor as each one lands rather
-            // than all at once at the end. Sections fill in progressively.
-            for await (sourceID, result) in group {
-                apply(result, sourceID: sourceID)
+            // than all at once at the end. Topics fill in progressively.
+            for await (source, result) in group {
+                apply(result, source: source)
             }
         }
     }
 
-    private func apply(_ result: Result<SourceLoadResult, Error>, sourceID: String) {
-        inFlight.remove(sourceID)
+    private func apply(_ result: Result<SourceLoadResult, Error>, source: Source) {
+        inFlight.remove(source.id)
 
         switch result {
         case .success(let loaded):
-            articlesBySource[sourceID] = loaded.articles
-            noteBySource[sourceID] = loaded.note
+            articlesBySource[source.id] = loaded.articles
+            noteBySource[source.id] = loaded.note
             let now = Date()
-            fetchedBySource[sourceID] = now
-            phaseBySource[sourceID] = .loaded
+            fetchedBySource[source.id] = now
+            phaseBySource[source.id] = .loaded
+            classify(loaded.articles, source: source)
             FeedCache(articles: loaded.articles, fetched: now, note: loaded.note)
-                .save(sourceID: sourceID)
+                .save(sourceID: source.id)
 
         case .failure(let error):
             let message = (error as? FeedError)?.errorDescription
                 ?? FeedError.from(error).errorDescription
                 ?? "Could not load this source."
-            phaseBySource[sourceID] = .failed(message)
+            phaseBySource[source.id] = .failed(message)
             // Deliberately leaves `articlesBySource` alone: a failed refresh
             // keeps whatever was already on screen.
         }
+    }
+
+    private func classify(_ articles: [Article], source: Source) {
+        for article in articles {
+            verdicts[article.id] = article.classified(using: source)
+        }
+    }
+
+    /// Re-files everything already loaded.
+    ///
+    /// Needed when a source's topic settings change: the articles are still
+    /// good, but the answer to "which screen does this belong on" is not.
+    func reclassify(sources: [Source]) {
+        var updated: [String: TopicVerdict] = [:]
+        for source in sources {
+            for article in articlesBySource[source.id] ?? [] {
+                updated[article.id] = article.classified(using: source)
+            }
+        }
+        verdicts = updated
     }
 
     func clearAll() {
@@ -122,10 +152,12 @@ final class FeedStore: ObservableObject {
         phaseBySource = [:]
         noteBySource = [:]
         fetchedBySource = [:]
+        verdicts = [:]
         DiskStore.clearFeedCaches()
     }
 
     func forget(sourceID: String) {
+        for article in articlesBySource[sourceID] ?? [] { verdicts[article.id] = nil }
         articlesBySource[sourceID] = nil
         phaseBySource[sourceID] = nil
         noteBySource[sourceID] = nil
@@ -139,14 +171,19 @@ final class FeedStore: ObservableObject {
         articlesBySource[sourceID] ?? []
     }
 
-    /// One section's articles: every source it contains, merged, deduplicated
-    /// and newest first.
-    func merged(sources: [Source]) -> [Article] {
+    func verdict(for article: Article) -> TopicVerdict? {
+        verdicts[article.id]
+    }
+
+    /// One topic's articles: every source that reaches it, filtered to the ones
+    /// the classifier actually filed there, merged and newest first.
+    func articles(for topic: Topic, from sources: [Source]) -> [Article] {
         var seen = Set<String>()
         var merged: [Article] = []
 
         for source in sources {
             for article in articlesBySource[source.id] ?? [] {
+                guard verdicts[article.id]?.topic == topic else { continue }
                 // Source order decides which copy of a cross-posted story wins,
                 // and source order is the user's to set.
                 guard seen.insert(article.dedupeKey).inserted else { continue }
@@ -159,7 +196,7 @@ final class FeedStore: ObservableObject {
         }
     }
 
-    /// A section is busy while any of its sources is.
+    /// A topic is busy while any of its sources is.
     func phase(for sources: [Source]) -> LoadPhase {
         let phases = sources.compactMap { phaseBySource[$0.id] }
         guard !phases.isEmpty else { return .idle }
@@ -174,7 +211,7 @@ final class FeedStore: ObservableObject {
         return .idle
     }
 
-    /// Problems worth mentioning without taking the section over: the sources
+    /// Problems worth mentioning without taking the screen over: the sources
     /// that failed while others succeeded, and the ones served from a fallback.
     func advisories(for sources: [Source]) -> [String] {
         var lines: [String] = []

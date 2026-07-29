@@ -83,17 +83,18 @@ struct SourceBadge: View {
     let context: String?
     let age: String?
     var isUnread: Bool = true
+    var accent: Color = Palette.accent
 
     var body: some View {
         HStack(spacing: 5) {
             if isUnread {
                 Circle()
-                    .fill(Palette.accent)
+                    .fill(accent)
                     .frame(width: 5, height: 5)
             }
             Text(sourceName.uppercased())
                 .font(.system(size: 11, weight: .heavy))
-                .foregroundStyle(Palette.accent)
+                .foregroundStyle(accent)
                 .lineLimit(1)
 
             if let context, !context.isEmpty, context != sourceName {
@@ -199,95 +200,5 @@ struct AdvisoryBanner: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Palette.surface)
         }
-    }
-}
-
-/// The horizontal row of section names above the feed.
-struct SectionPills: View {
-
-    let sections: [FeedSection]
-    let unreadCounts: [String: Int]
-    @Binding var selection: String
-
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(sections) { section in
-                        pill(for: section)
-                            .id(section.id)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-            }
-            .onChange(of: selection) { newValue in
-                // Swiping the pager has to drag the pill row along with it, or
-                // the selected section scrolls off screen and the bar stops
-                // telling you where you are.
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    proxy.scrollTo(newValue, anchor: .center)
-                }
-            }
-        }
-    }
-
-    private func pill(for section: FeedSection) -> some View {
-        let isSelected = section.id == selection
-        let unread = unreadCounts[section.id] ?? 0
-
-        return Button {
-            withAnimation(.easeInOut(duration: 0.2)) { selection = section.id }
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: section.systemImage)
-                    .font(.system(size: 11, weight: .semibold))
-                Text(section.title)
-                    .font(.system(size: 13, weight: .semibold))
-                if unread > 0 {
-                    Text(unread > 99 ? "99+" : "\(unread)")
-                        .font(.system(size: 10, weight: .bold).monospacedDigit())
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .background(isSelected ? Color.black.opacity(0.22) : Palette.surfaceStrong,
-                                    in: Capsule())
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .foregroundStyle(isSelected ? Color.black : Color.primary)
-            .background(isSelected ? Palette.accent : Palette.surface, in: Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// A thin progress line under the navigation bar.
-///
-/// Preferred over a centred spinner because a section refreshing usually has
-/// content behind it — the spinner would sit on top of readable news and
-/// suggest the screen is blocked when it is not.
-struct LoadingBar: View {
-
-    let isActive: Bool
-    @State private var phase: CGFloat = 0
-
-    var body: some View {
-        GeometryReader { geometry in
-            if isActive {
-                Palette.accent
-                    .frame(width: geometry.size.width * 0.35)
-                    .offset(x: phase * geometry.size.width * 1.35 - geometry.size.width * 0.35)
-                    .onAppear {
-                        withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) {
-                            phase = 1
-                        }
-                    }
-                    .onDisappear { phase = 0 }
-            }
-        }
-        .frame(height: 2)
-        .clipped()
-        .opacity(isActive ? 1 : 0)
     }
 }

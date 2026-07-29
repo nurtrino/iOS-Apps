@@ -18,31 +18,30 @@ struct SearchScreen: View {
     @State private var webLink: WebLink?
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if query.trimmingCharacters(in: .whitespaces).isEmpty {
-                    StateView(
-                        systemImage: "magnifyingglass",
-                        title: "Search your feeds",
-                        message: "Looks through every story loaded on this device — "
-                            + "\(feed.everyArticle.count) right now."
-                    )
-                } else if results.isEmpty {
-                    StateView(
-                        systemImage: "questionmark.circle",
-                        title: "No matches",
-                        message: "Nothing loaded matches “\(query)”. Pull the feed down to fetch more."
-                    )
-                } else {
-                    list
-                }
+        Group {
+            if query.trimmingCharacters(in: .whitespaces).isEmpty {
+                StateView(
+                    systemImage: "magnifyingglass",
+                    title: "Search your feeds",
+                    message: "Looks through every story loaded on this device — "
+                        + "\(feed.everyArticle.count) right now."
+                )
+            } else if results.isEmpty {
+                StateView(
+                    systemImage: "questionmark.circle",
+                    title: "No matches",
+                    message: "Nothing loaded matches “\(query)”. Pull the feed down to fetch more."
+                )
+            } else {
+                list
             }
-            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
-                        prompt: "Headlines and text")
-            .navigationTitle("Search")
-            .toolbar { filterMenu }
-            .navigationDestination(for: Article.self) { ArticleScreen(article: $0) }
         }
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                    prompt: "Headlines and text")
+        .navigationTitle("Search")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { filterMenu }
+        .navigationDestination(for: Article.self) { ArticleScreen(article: $0) }
         .sheet(item: $webLink) { link in
             SafariSheet(url: link.url).ignoresSafeArea()
         }

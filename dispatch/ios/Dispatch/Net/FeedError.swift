@@ -47,7 +47,7 @@ enum FeedError: LocalizedError, Equatable {
         case .needsBridge:
             return "X needs a bridge. Set one up in Settings › X bridge."
         case .needsSteamLibrary:
-            return "No games yet. Add your Steam library in Settings › Steam."
+            return "No games yet. Add your Steam library in More › Steam."
         case .transport(let message):
             return message
         }

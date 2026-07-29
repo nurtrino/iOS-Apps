@@ -28,6 +28,7 @@ from feed_reference import (  # noqa: E402
     remove_opaque_sections, canonical_key, headline, message_chunks,
     balanced_div, parse_telegram, normalize_channel, normalize_handle,
     steam_html, parse_date, replacement, last_attribute_value,
+    load_lexicon, classify, normalise,
 )
 
 FAILURES = []
@@ -473,6 +474,165 @@ check("an unknown name resolves to nothing", replacement("nope"), None)
 check("decoding is idempotent for plain text", decode_entities("plain"), "plain")
 check("a bare ampersand survives decoding", decode_entities("Q&A"), "Q&A")
 check("an unknown entity survives decoding", decode_entities("&nope;"), "&nope;")
+
+
+# --- Topic classification ---------------------------------------------------
+#
+# The lexicon is read out of TopicLexicon.swift, so these run against the table
+# the app actually ships. A term added to the app is a term these tests see.
+#
+# What is being defended: a story landing in the wrong section is the failure
+# nobody reports, because it does not look like a bug — it looks like the feed
+# being quiet. The ambiguous cases below are the ones a naive keyword matcher
+# gets wrong, and each is a word that genuinely belongs to two topics.
+
+LEXICON = load_lexicon()
+
+
+def topic_of(title, body="", prior=None, fallback="politics"):
+    return classify(title, body, prior, fallback, LEXICON)[0]
+
+
+def verdict_of(title, body="", prior=None, fallback="politics"):
+    return classify(title, body, prior, fallback, LEXICON)
+
+
+check("the lexicon parses out of the Swift", len(LEXICON), 3)
+check_true("every topic has a substantial term list",
+           all(len(terms) > 60 for terms in LEXICON.values()))
+
+# No term should appear in two topics with the same weight — that is a term
+# doing no work, and usually a sign it wanted to be a phrase.
+_SHARED = set(t for t, _ in LEXICON["war"]) & set(t for t, _ in LEXICON["economics"])
+check("war and economics share no bare terms", sorted(_SHARED), [])
+
+
+# --- Unambiguous war --------------------------------------------------------
+
+check("an airstrike headline is war",
+      topic_of("Israeli airstrike kills Hezbollah commander in southern Lebanon"), "war")
+
+check("a drone barrage is war",
+      topic_of("Russia launches largest drone barrage of the war on Kyiv"), "war")
+
+check("a counteroffensive is war",
+      topic_of("Ukraine counteroffensive stalls near Zaporizhzhia"), "war")
+
+check("a carrier deployment is war",
+      topic_of("Pentagon confirms carrier strike group deployed to the Red Sea"), "war")
+
+
+# --- Unambiguous politics ---------------------------------------------------
+
+check("a Supreme Court story is politics",
+      topic_of("Supreme Court agrees to hear challenge to executive order", prior="politics"),
+      "politics")
+
+check("a confirmation hearing is politics",
+      topic_of("Senate Republicans block confirmation hearing for nominee", prior="politics"),
+      "politics")
+
+check("a House investigation is politics",
+      topic_of("House Democrats launch investigation into deportation flights", prior="politics"),
+      "politics")
+
+
+# --- Unambiguous economics --------------------------------------------------
+
+check("a CPI print is economics",
+      topic_of("CPI comes in hotter than expected as inflation reaccelerates", prior="economics"),
+      "economics")
+
+check("a Fed decision is economics",
+      topic_of("Fed holds rates steady, Powell signals no cuts until inflation cools",
+               prior="economics"),
+      "economics")
+
+check("an index close is economics",
+      topic_of("S&P 500 closes at record high as Treasury yields fall", prior="economics"),
+      "economics")
+
+check("a bitcoin move is economics",
+      topic_of("Bitcoin tops $100,000 as ETF inflows accelerate", prior="economics"),
+      "economics")
+
+
+# --- The words that belong to two topics ------------------------------------
+#
+# Each of these is a case where matching the bare word gets it wrong, and the
+# phrase in the lexicon is what saves it.
+
+check("an air strike is war, not a labour dispute",
+      topic_of("Air strike destroys ammunition depot near Donetsk"), "war")
+
+check("a strike authorization is economics, not war",
+      topic_of("Autoworkers vote to authorize strike at three plants", prior="economics"),
+      "economics")
+
+check("a UAW walkout is economics",
+      topic_of("UAW walkout enters second week as talks stall", prior="economics"), "economics")
+
+check("the West Bank is war, not banking",
+      topic_of("West Bank raid leaves several dead"), "war")
+
+check("a central bank is economics, not war",
+      topic_of("Central bank holds rates as inflation cools", prior="economics"), "economics")
+
+check("tariffs are economics even on a political outlet",
+      topic_of("Trump announces new tariffs on Chinese imports", prior="politics"), "economics")
+
+check("a campaign rally is politics, not a market rally",
+      topic_of("Thousands turn out for campaign rally in Ohio", prior="politics"), "politics")
+
+# A Houthi attack moves oil, but on the headline alone the war vocabulary is
+# overwhelming and War is where someone monitoring the situation expects it.
+check("a Red Sea attack is war even on a markets outlet",
+      topic_of("Oil surges after Houthi attack on tanker in Red Sea", prior="economics"), "war")
+
+
+# --- Weighting and fallbacks ------------------------------------------------
+
+check("the headline outweighs the body",
+      topic_of("Missile strike on Kharkiv",
+               body="Traders said the stock market and inflation outlook were unchanged.",
+               prior="economics"),
+      "war")
+
+_LOW = verdict_of("Man arrested after dispute at a gas station", prior="politics")
+check("a story with no signal falls back to the source default", _LOW[0], "politics")
+check("a fallback is reported as one", _LOW[3], True)
+check("a fallback has no confidence", _LOW[1], 0.0)
+
+_STRONG = verdict_of("Airstrike destroys warship in the Red Sea")
+check("a decisive call is confident", _STRONG[1], 1.0)
+check("a decisive call is not a fallback", _STRONG[3], False)
+check_true("a decisive call cites its evidence", len(_STRONG[2]) > 0)
+
+# The prior is a nudge, not a veto: it must break a tie without dragging an
+# obvious battlefield report out of War.
+check("the source prior cannot override a strong signal",
+      topic_of("Artillery duel intensifies along the frontline", prior="economics"), "war")
+
+check("the source prior breaks a genuine tie",
+      topic_of("Officials weigh new policy", prior="economics", fallback="economics"),
+      "economics")
+
+
+# --- Normalisation ----------------------------------------------------------
+
+check("case is ignored", topic_of("AIRSTRIKE ON KYIV"), "war")
+
+check("an apostrophe does not break a term",
+      topic_of("Powell's testimony moves markets", prior="economics"), "economics")
+
+check("punctuation between words does not break a phrase",
+      topic_of("Report: air-strike hits depot"), "war")
+
+check("normalisation collapses whitespace",
+      normalise("  Air   strike\non   Kyiv  "), "air strike on kyiv")
+
+check("normalisation keeps hyphens and ampersands",
+      normalise("S&P 500 and the 10-year"), "s&p 500 and the 10-year")
 
 
 # --- Report -----------------------------------------------------------------

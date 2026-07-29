@@ -63,15 +63,42 @@ enum SourceStyle: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Whether a source's topic is known up front or has to be worked out per item.
+enum TopicMode: String, Codable, CaseIterable, Identifiable {
+    /// Everything this source publishes is the same topic. True of a defense
+    /// outlet, a Telegram war channel, a gaming account — and it makes those
+    /// sources free to route, with no chance of a misfile.
+    case fixed
+    /// A general outlet. Every item is scored individually.
+    case classified
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .fixed: return "Always one topic"
+        case .classified: return "Sort each story"
+        }
+    }
+}
+
 /// One feed the app pulls from.
 struct Source: Identifiable, Codable, Hashable {
 
     var id: String
     var name: String
     var kind: SourceKind
-    var sectionID: String
     /// Meaning depends on `kind` — see `SourceKind.endpointLabel`.
     var endpoint: String
+
+    var topicMode: TopicMode
+    /// The topic for a `.fixed` source, and the fallback for a `.classified`
+    /// one when nothing in the text scores high enough to call.
+    var fixedTopic: Topic
+    /// A thumb on the scale for a `.classified` source — what it usually
+    /// publishes. Nil means genuinely no lean.
+    var topicPrior: Topic?
+
     /// Plain RSS URLs to fall back to when `endpoint` cannot be reached.
     ///
     /// This is what keeps the X sections useful with no bridge configured, and
@@ -87,8 +114,10 @@ struct Source: Identifiable, Codable, Hashable {
     init(id: String,
          name: String,
          kind: SourceKind,
-         sectionID: String,
          endpoint: String,
+         topicMode: TopicMode = .fixed,
+         fixedTopic: Topic = .politics,
+         topicPrior: Topic? = nil,
          fallbackFeeds: [String] = [],
          style: SourceStyle = .article,
          isEnabled: Bool = true,
@@ -96,8 +125,10 @@ struct Source: Identifiable, Codable, Hashable {
         self.id = id
         self.name = name
         self.kind = kind
-        self.sectionID = sectionID
         self.endpoint = endpoint
+        self.topicMode = topicMode
+        self.fixedTopic = fixedTopic
+        self.topicPrior = topicPrior
         self.fallbackFeeds = fallbackFeeds
         self.style = style
         self.isEnabled = isEnabled
@@ -113,6 +144,12 @@ struct Source: Identifiable, Codable, Hashable {
         }
     }
 
+    /// Topics this source can put a story into — what the Sources screen shows
+    /// as its destination.
+    var reachableTopics: [Topic] {
+        topicMode == .fixed ? [fixedTopic] : Topic.classifiable
+    }
+
     /// Decoded leniently so a source stored by an older build — before a field
     /// existed — still loads instead of taking the whole catalog down with it.
     init(from decoder: Decoder) throws {
@@ -120,8 +157,10 @@ struct Source: Identifiable, Codable, Hashable {
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         kind = (try? container.decode(SourceKind.self, forKey: .kind)) ?? .rss
-        sectionID = (try? container.decode(String.self, forKey: .sectionID)) ?? SectionCatalog.topID
         endpoint = (try? container.decode(String.self, forKey: .endpoint)) ?? ""
+        topicMode = (try? container.decode(TopicMode.self, forKey: .topicMode)) ?? .fixed
+        fixedTopic = (try? container.decode(Topic.self, forKey: .fixedTopic)) ?? .politics
+        topicPrior = try? container.decode(Topic.self, forKey: .topicPrior)
         fallbackFeeds = (try? container.decode([String].self, forKey: .fallbackFeeds)) ?? []
         style = (try? container.decode(SourceStyle.self, forKey: .style)) ?? .article
         isEnabled = (try? container.decode(Bool.self, forKey: .isEnabled)) ?? true
@@ -129,55 +168,26 @@ struct Source: Identifiable, Codable, Hashable {
     }
 }
 
-/// A tab in the feed: a name and the sources that fill it.
-struct FeedSection: Identifiable, Codable, Hashable {
-    var id: String
-    var title: String
-    var systemImage: String
-    var isBuiltIn: Bool
-
-    init(id: String, title: String, systemImage: String, isBuiltIn: Bool = false) {
-        self.id = id
-        self.title = title
-        self.systemImage = systemImage
-        self.isBuiltIn = isBuiltIn
-    }
-}
-
-/// The sections the app ships with.
-enum SectionCatalog {
-
-    /// Not a real section — a view over every other one, merged and sorted.
-    /// Held as a constant because several places have to special-case it.
-    static let topID = "top"
-
-    static let defaults: [FeedSection] = [
-        FeedSection(id: topID, title: "Top", systemImage: "newspaper", isBuiltIn: true),
-        FeedSection(id: "wire", title: "Wire", systemImage: "bolt.horizontal", isBuiltIn: true),
-        FeedSection(id: "markets", title: "Markets",
-                    systemImage: "chart.line.uptrend.xyaxis", isBuiltIn: true),
-        FeedSection(id: "frontpage", title: "Front Page",
-                    systemImage: "list.bullet.rectangle", isBuiltIn: true),
-        FeedSection(id: "defense", title: "Defense", systemImage: "shield", isBuiltIn: true),
-        FeedSection(id: "gaming", title: "Gaming", systemImage: "gamecontroller", isBuiltIn: true),
-    ]
-}
-
 /// The sources the app ships with.
 ///
-/// Each one carries a fallback so a section is never empty just because its
-/// primary host is having a day. The two X sources fall back to real RSS
+/// Each one carries a fallback so a topic is never empty just because its
+/// primary host is having a day. The X sources fall back to real RSS
 /// deliberately: X has no public read API, so without a bridge configured they
 /// would otherwise show nothing at all.
 enum SourceCatalog {
 
     static let defaults: [Source] = [
+
+        // --- General outlets, sorted per story ---------------------------
+
         Source(
             id: "zerohedge",
             name: "ZeroHedge",
             kind: .rss,
-            sectionID: "markets",
             endpoint: "https://cms.zerohedge.com/fullrss2.xml",
+            topicMode: .classified,
+            fixedTopic: .economics,
+            topicPrior: .economics,
             fallbackFeeds: [
                 "https://feeds.feedburner.com/zerohedge/feed",
                 "https://www.zerohedge.com/fullrss2.xml",
@@ -189,8 +199,10 @@ enum SourceCatalog {
             id: "zerohedge-x",
             name: "ZeroHedge Wire",
             kind: .x,
-            sectionID: "wire",
             endpoint: "zerohedge",
+            topicMode: .classified,
+            fixedTopic: .economics,
+            topicPrior: .economics,
             // Without a bridge this is the whole source, so it points at the
             // fullest feed available: titles alone still make a usable wire.
             fallbackFeeds: [
@@ -204,18 +216,24 @@ enum SourceCatalog {
             id: "citizenfreepress",
             name: "Citizen Free Press",
             kind: .rss,
-            sectionID: "frontpage",
             endpoint: "https://citizenfreepress.com/feed/",
+            topicMode: .classified,
+            fixedTopic: .politics,
+            topicPrior: .politics,
             fallbackFeeds: ["https://citizenfreepress.com/feed/rss/"],
             style: .wire,
             isBuiltIn: true
         ),
+
+        // --- War ----------------------------------------------------------
+
         Source(
             id: "twz",
             name: "The War Zone",
             kind: .rss,
-            sectionID: "defense",
             endpoint: "https://www.twz.com/feed",
+            topicMode: .fixed,
+            fixedTopic: .war,
             fallbackFeeds: [
                 "https://www.twz.com/rss",
                 "https://www.thedrive.com/the-war-zone/feed",
@@ -227,28 +245,34 @@ enum SourceCatalog {
             id: "wfwitness",
             name: "WarFront Witness",
             kind: .telegram,
-            sectionID: "defense",
             endpoint: "wfwitness",
-            style: .article,
+            topicMode: .fixed,
+            fixedTopic: .war,
+            style: .wire,
             isBuiltIn: true
         ),
+
+        // --- Gaming ---------------------------------------------------------
+
         Source(
             id: "steam",
             name: "Steam",
             kind: .steam,
-            sectionID: "gaming",
             endpoint: "",
+            topicMode: .fixed,
+            fixedTopic: .gaming,
             style: .article,
             isBuiltIn: true
         ),
         Source(
             id: "gaming-x",
-            name: "Gaming Wire",
+            name: "Wario64",
             kind: .x,
-            sectionID: "gaming",
-            // Wario64 is the long-running high-signal account for releases,
-            // deals and patch news; Genki covers the Japanese side.
+            // The long-running high-signal account for releases, deals and
+            // patch news.
             endpoint: "Wario64",
+            topicMode: .fixed,
+            fixedTopic: .gaming,
             fallbackFeeds: [
                 "https://www.pcgamer.com/rss/",
                 "https://www.rockpapershotgun.com/feed",
@@ -257,11 +281,34 @@ enum SourceCatalog {
             isBuiltIn: true
         ),
         Source(
+            id: "pirat-nation",
+            name: "Pirat Nation",
+            kind: .x,
+            endpoint: "Pirat_Nation",
+            topicMode: .fixed,
+            fixedTopic: .gaming,
+            fallbackFeeds: ["https://www.eurogamer.net/feed"],
+            style: .wire,
+            isBuiltIn: true
+        ),
+        Source(
+            id: "charlieintel",
+            name: "CharlieIntel",
+            kind: .x,
+            endpoint: "charlieINTEL",
+            topicMode: .fixed,
+            fixedTopic: .gaming,
+            fallbackFeeds: ["https://www.charlieintel.com/feed/"],
+            style: .wire,
+            isBuiltIn: true
+        ),
+        Source(
             id: "gaming-x-genki",
             name: "Genki",
             kind: .x,
-            sectionID: "gaming",
             endpoint: "Genki_JPN",
+            topicMode: .fixed,
+            fixedTopic: .gaming,
             fallbackFeeds: ["https://www.gematsu.com/feed"],
             style: .wire,
             isEnabled: false,
