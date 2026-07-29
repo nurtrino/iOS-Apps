@@ -108,13 +108,15 @@ final class FeedStore: ObservableObject {
 
         switch result {
         case .success(let loaded):
-            articlesBySource[source.id] = loaded.articles
+            let merged = FeedStore.merge(incoming: loaded.articles,
+                                         existing: articlesBySource[source.id] ?? [])
+            articlesBySource[source.id] = merged
             noteBySource[source.id] = loaded.note
             let now = Date()
             fetchedBySource[source.id] = now
             phaseBySource[source.id] = .loaded
-            classify(loaded.articles, source: source)
-            FeedCache(articles: loaded.articles, fetched: now, note: loaded.note)
+            classify(merged, source: source)
+            FeedCache(articles: merged, fetched: now, note: loaded.note)
                 .save(sourceID: source.id)
 
         case .failure(let error):
@@ -125,6 +127,45 @@ final class FeedStore: ObservableObject {
             // Deliberately leaves `articlesBySource` alone: a failed refresh
             // keeps whatever was already on screen.
         }
+    }
+
+    /// How many articles a single source keeps once its feed has moved on.
+    ///
+    /// Three times a default fetch. Enough that a source posting thirty times a
+    /// day holds several days, small enough that ten sources is a few megabytes.
+    static let retained = 120
+
+    /// Folds a fresh fetch into what is already held, newest first.
+    ///
+    /// **This is what stops a fast source losing stories.** A feed is a window,
+    /// not an archive: Citizen Free Press publishes dozens of items a day and
+    /// its RSS holds a fraction of them, so replacing the list on every fetch
+    /// meant anything that entered and left that window between two refreshes
+    /// was never seen at all — and anything already read scrolled out of the app
+    /// the moment it scrolled out of the feed. Merging turns each fetch into an
+    /// addition, and the app accumulates the history the feed does not keep.
+    ///
+    /// The incoming copy wins on an id collision, because a re-fetch is where a
+    /// corrected title or a resolved outbound link arrives. The cost is that a
+    /// post deleted upstream lingers until it ages past `retained`, which is the
+    /// right way round: silently dropping stories is worse than briefly keeping
+    /// one too many.
+    static func merge(incoming: [Article], existing: [Article]) -> [Article] {
+        guard !existing.isEmpty else { return incoming }
+
+        var byID: [String: Article] = [:]
+        var order: [String] = []
+        for article in incoming + existing where byID[article.id] == nil {
+            byID[article.id] = article
+            order.append(article.id)
+        }
+
+        let all = order.compactMap { byID[$0] }
+        let sorted = all.sorted { left, right in
+            if left.sortDate != right.sortDate { return left.sortDate > right.sortDate }
+            return left.id < right.id
+        }
+        return Array(sorted.prefix(retained))
     }
 
     private func classify(_ articles: [Article], source: Source) {

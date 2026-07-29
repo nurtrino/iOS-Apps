@@ -1167,9 +1167,65 @@ def stable_hash_hex(text):
     return "%x" % value
 
 
-def brief_input_key(article_ids):
-    """Mirrors SummaryStore.inputKey — order-independent by design."""
-    return stable_hash_hex("\n".join(sorted(article_ids)))
+def brief_input_key(article_ids, model, revision):
+    """Mirrors SummaryStore.inputKey — order-independent by design.
+
+    The model and prompt revision lead the hash so that changing either one
+    invalidates every stored brief instead of leaving the old model's prose in
+    place until the headlines happen to move.
+    """
+    prefix = "%s#%s" % (model, revision)
+    return stable_hash_hex("\n".join([prefix] + sorted(article_ids)))
+
+
+def strip_marker(line):
+    """Mirrors SummaryAPI.stripMarker — one leading list marker."""
+    if not line:
+        return line
+    if line[0] in "-\u2013\u2014*\u2022\u00b7":
+        return line[1:].strip()
+    if not line[0].isdigit():
+        return line
+    digits = 0
+    i = 0
+    while i < len(line) and line[i].isdigit() and digits < 2:
+        i += 1
+        digits += 1
+    if i >= len(line) or line[i] not in ".)":
+        return line
+    if i + 1 >= len(line) or line[i + 1] != " ":
+        return line
+    return line[i + 1:].strip()
+
+
+def summary_bullets(text):
+    """Mirrors SummaryAPI.bullets."""
+    out = []
+    for raw in text.split("\n"):
+        line = raw.replace("**", "").strip()
+        line = strip_marker(strip_marker(line))
+        if len(line) > 1:
+            out.append(line)
+    return out
+
+
+def merge_articles(incoming, existing, retained=120):
+    """Mirrors FeedStore.merge. Items are (id, sort_date) pairs.
+
+    Newest first; the incoming copy wins an id collision; the tail past
+    `retained` is dropped.
+    """
+    if not existing:
+        return list(incoming)
+    seen = {}
+    order = []
+    for item in list(incoming) + list(existing):
+        if item[0] not in seen:
+            seen[item[0]] = item
+            order.append(item[0])
+    merged = [seen[key] for key in order]
+    merged.sort(key=lambda item: (-item[1], item[0]))
+    return merged[:retained]
 
 
 def summary_prompt(topic, headlines):

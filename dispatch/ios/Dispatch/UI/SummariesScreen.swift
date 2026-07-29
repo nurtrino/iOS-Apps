@@ -52,13 +52,17 @@ struct SummariesScreen: View {
     /// `Text` inside a ViewBuilder are what made SettingsScreen time out the
     /// type checker on CI.
     private var featureFooter: String {
-        "When this is on, the brief at the top of each section opens with two or three "
-            + "sentences written by Claude saying what just happened, generated from the "
-            + "headlines the brief already shows.\n\n"
+        "When this is on, the brief at the top of each section opens with a few bullets "
+            + "written by Claude saying what just happened, generated from the newest "
+            + "headlines in that section — including the wires shown in their own block, "
+            + "since a frontline channel is the best material there is for what just "
+            + "happened.\n\n"
             + "What is sent to Anthropic: those headlines, their source names and their ages. "
             + "Nothing else — not article text, not what you read, not your Steam library. "
             + "A summary is only regenerated when the headlines change, a few times an hour "
-            + "at most, and each one costs a fraction of a cent on your key."
+            + "at most. Haiku is used rather than a larger model because the job is four "
+            + "lines off headlines that are already written, so each brief costs a small "
+            + "fraction of a cent on your key."
     }
 
     private var keySection: some View {

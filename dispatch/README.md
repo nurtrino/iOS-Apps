@@ -61,7 +61,25 @@ break that badly enough to need handling:
 
 Both are pulled out of their topic's main list: Steam as a horizontal rail of
 game cards, WarFront Witness as its own `Section` of the newest six with the
-rest one tap away. The main list underneath goes back to being readable.
+rest one tap away. The main list underneath goes back to being readable, and the
+brief above skips them for the same reason.
+
+A third rate problem is invisible rather than ugly. **A feed is a window, not an
+archive**: Citizen Free Press publishes dozens of items a day and its RSS holds a
+fraction of them, so a refresh that replaced a source's list lost every story
+that entered and left that window between two fetches — and dropped anything
+already read the moment it scrolled off the feed. `FeedStore.merge` folds each
+fetch into what is already held instead, newest first, incoming copy winning an
+id collision (that is where a corrected title or a resolved outbound link
+arrives), capped at 120 items per source. The app accumulates the history the
+feed does not keep. The cost is that a post deleted upstream lingers until it
+ages out, which is the right way round.
+
+Freshness has three triggers, all of them staleness-gated so none of them
+thrashes: launch, switching to a tab, and returning to the app. The last one caps
+staleness at two minutes regardless of the Refresh setting — that setting exists
+to stop a background poll from running constantly, not to make a reopened app
+show hour-old news. Pull-to-refresh and the toolbar button always force.
 
 Those blocks push through a `NavigationPath` rather than containing
 `NavigationLink`s. SwiftUI treats a List row as a single destination, so several
@@ -114,27 +132,44 @@ opens X rather than claiming to know.
 
 ## The brief
 
-Each topic opens with a catch-up block: the newest few headlines, numbered, one
-per source before any source repeats, plus a line of real fact where the topic
-has one. On Markets that is the actual index moves and whether a release has
-already landed today, which is the question that section gets asked at nine in
-the morning.
+Each topic opens with a catch-up block: the newest headlines, numbered, plus a
+line of real fact where the topic has one. On Markets that is the actual index
+moves and whether a release has already landed today, which is the question that
+section gets asked at nine in the morning.
 
 The base layer is a **digest** — everything in it is material that is already
 there, selected and ordered, built with no network at all. It can be turned off
 in Settings.
 
+**The rows are strictly one per source, and skip sources with their own block.**
+Both rules come from the same failure: filling spare slots with the loudest wire
+turned the War brief into three consecutive Warfront Witness posts from one
+thread, three rows saying one thing, directly above the section that already
+shows that channel in full. Four distinct sources beats five rows.
+
 **AI summaries** sit on top, by explicit opt-in. Paste an Anthropic API key in
-Settings → AI summaries and the brief opens with two or three sentences written
-by Claude (`claude-opus-5`, over raw HTTPS to `v1/messages` — there is no Swift
-SDK) saying what just happened. What is sent is exactly what the digest already
-shows: the headlines, their source names, their ages. No article bodies, no
-reading history. A summary regenerates only when the headline set actually
-changes *and* the last one is at least five minutes old — the input is hashed
-(`SummaryStore.inputKey`) so a refresh that reorders the same five headlines
-does not bill. The key lives in the Keychain, `ThisDeviceOnly`, same as the
-Steam key; a failed or keyless request degrades to the plain digest, never to
-an error screen.
+Settings → AI summaries and the brief opens with a few bullets written by Claude
+(`claude-haiku-4-5`, over raw HTTPS to `v1/messages` — there is no Swift SDK)
+saying what just happened. Haiku rather than an Opus deliberately: the job is
+four lines off headlines that are already written, and it runs across four
+sections all day.
+
+The summary reads a wider pool than the rows show — the newest eight in the
+window, capped at three per source, *including* the wires excluded from the rows,
+because a frontline channel is the best material there is for "what just
+happened". What is sent is only ever headline text, source names and ages. No
+article bodies, no reading history.
+
+A summary regenerates only when that pool actually changes *and* the last one is
+at least five minutes old. The input is hashed (`SummaryStore.inputKey`) so a
+refresh that reorders the same headlines does not bill; the model id and a prompt
+revision are part of the same hash, so changing either invalidates every stored
+brief rather than leaving the old model's prose in place. While the first one is
+being written the block shows only that it is being written — a half-drawn brief
+that rearranges itself under your thumb is worse than a second of waiting.
+
+The key lives in the Keychain, `ThisDeviceOnly`, same as the Steam key; a failed
+or keyless request degrades to the plain digest, never to an error screen.
 
 ## Markets data
 
@@ -357,6 +392,16 @@ cases that actually break feed readers:
 - Classifier normalisation. Two bugs came out of writing those: `Powell's`
   normalised to `powells` and matched nothing, and a headline spelling it
   `air-strike` never matched the phrase `air strike`.
+- The Claude request. The wire constants are read *out of* `SummaryAPI.swift`, so
+  a typo'd endpoint or version header fails a test rather than a live request,
+  and the prompt is pinned byte for byte.
+- The summary cache key, against published FNV-1a vectors — it decides when money
+  is spent, so "the same headlines in a different order" has to hash the same and
+  "a different model" has to hash differently.
+- Bullet parsing, including the case that makes a naive marker-stripper wrong: a
+  line opening `3.4% and rising` must not lose its `3.` to the list-marker rule.
+- The feed merge: retention, newest-first ordering, and the incoming copy winning
+  an id collision.
 
 The fixtures are hand-constructed — this build environment's egress policy
 blocks every one of these hosts, so nothing was captured live. Anything that

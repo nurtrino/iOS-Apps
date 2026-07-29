@@ -41,9 +41,14 @@ final class SummaryStore: ObservableObject {
 
     /// One deterministic name for a set of articles, order-independent —
     /// a refresh that reorders the same five headlines is not a change.
-    /// Mirrored in `tools/feed_reference.py`.
+    ///
+    /// The model and prompt revision are part of it because the text depends on
+    /// them as much as on the headlines: switching models has to produce a new
+    /// brief, not leave the old model's prose in place indefinitely. Mirrored in
+    /// `tools/feed_reference.py`.
     static func inputKey(for articles: [Article]) -> String {
-        StableHash.hex(articles.map(\.id).sorted().joined(separator: "\n"))
+        let prefix = "\(SummaryAPI.model)#\(SummaryAPI.promptRevision)"
+        return StableHash.hex(([prefix] + articles.map(\.id).sorted()).joined(separator: "\n"))
     }
 
     func brief(for topic: Topic) -> GeneratedBrief? {

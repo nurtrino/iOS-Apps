@@ -15,8 +15,19 @@ enum SummaryAPI {
     /// instead of failing silently against the live API.
     static let endpoint = "https://api.anthropic.com/v1/messages"
     static let apiVersion = "2023-06-01"
-    static let model = "claude-opus-5"
+    /// Haiku rather than an Opus, deliberately: the job is four lines off five
+    /// headlines that are already written, this runs a few times an hour across
+    /// four sections all day, and it is a fifth of the price. If the lines ever
+    /// read badly, this constant is the knob.
+    static let model = "claude-haiku-4-5"
     static let maxTokens = 300
+
+    /// Bumped whenever the prompt or the model changes.
+    ///
+    /// It is part of the cache key, so a rewrite here invalidates every stored
+    /// brief instead of leaving yesterday's prose sitting under a new prompt
+    /// until its headlines happen to change.
+    static let promptRevision = 2
 
     /// One headline as the model sees it. A struct rather than passing
     /// `Article` through so the prompt builder is a pure function of visible
@@ -53,13 +64,15 @@ enum SummaryAPI {
     /// request, so it caches well and the per-request text is just the data.
     static let systemPrompt =
         "You write the brief at the top of a section in a personal news app. "
-        + "Given the newest headlines, write 2-3 plain sentences saying what just "
-        + "happened, so the reader knows the state of things before scanning the list. "
-        + "Lead with the most consequential development. Keep concrete numbers, names "
-        + "and places from the headlines; never add facts the headlines do not contain. "
-        + "If the headlines are unrelated, say the two biggest things rather than "
-        + "forcing a theme. No preamble, no bullet points, no markdown — just the "
-        + "sentences."
+        + "Given the newest headlines, write two to four short lines covering what just "
+        + "happened, most consequential first, so the reader knows the state of things "
+        + "before scanning the list. "
+        + "One line per point, separated by newlines. Each line is a single clause or "
+        + "short sentence under about twenty words. "
+        + "Where several headlines are the same story, merge them into one line. "
+        + "Keep concrete numbers, names and places from the headlines; never add facts "
+        + "the headlines do not contain. "
+        + "No bullet characters, no numbering, no markdown, no preamble — just the lines."
 
     /// The user turn. Pure string building, mirrored in
     /// `tools/feed_reference.py` and pinned by `test_feeds.py`.
@@ -70,6 +83,52 @@ enum SummaryAPI {
             lines.append("- [\(headline.source)\(age)] \(headline.title)")
         }
         return lines.joined(separator: "\n")
+    }
+
+    // MARK: - Bullets
+
+    /// Splits a generated brief into the lines the section renders as bullets.
+    ///
+    /// The prompt asks for one point per line and no bullet characters, and
+    /// mostly gets it — but a model that decides to be helpful and prefix every
+    /// line with "- " or "1. " must not produce a screen of double bullets. So
+    /// markers are stripped here rather than trusted away.
+    static func bullets(from text: String) -> [String] {
+        var lines: [String] = []
+        for raw in text.components(separatedBy: "\n") {
+            var line = raw.replacingOccurrences(of: "**", with: "")
+                .trimmingCharacters(in: .whitespaces)
+            line = stripMarker(stripMarker(line))
+            // One character is punctuation left behind, not a point.
+            guard line.count > 1 else { continue }
+            lines.append(line)
+        }
+        return lines
+    }
+
+    /// Removes one leading list marker: a dash-like glyph, or a short number
+    /// followed by a dot or bracket.
+    private static func stripMarker(_ line: String) -> String {
+        guard let first = line.first else { return line }
+
+        if "-–—*•·".contains(first) {
+            return String(line.dropFirst()).trimmingCharacters(in: .whitespaces)
+        }
+
+        // "1. " is a marker. "3.4% inflation" is not, which is why the digits
+        // have to be followed by a separator *and* a space — checking only for
+        // the dot would turn a number into "4% inflation".
+        guard first.isNumber else { return line }
+        var index = line.startIndex
+        var digits = 0
+        while index < line.endIndex, line[index].isNumber, digits < 2 {
+            index = line.index(after: index)
+            digits += 1
+        }
+        guard index < line.endIndex, ".)".contains(line[index]) else { return line }
+        let afterSeparator = line.index(after: index)
+        guard afterSeparator < line.endIndex, line[afterSeparator] == " " else { return line }
+        return String(line[afterSeparator...]).trimmingCharacters(in: .whitespaces)
     }
 
     // MARK: - Request

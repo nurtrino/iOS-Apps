@@ -73,6 +73,12 @@ struct TopicFeedList<Header: View>: View {
         }
         .listStyle(.plain)
         .refreshable { await refresh(force: true) }
+        // Switching to a tab asks that topic's sources whether they are stale.
+        // Without this the only automatic refreshes were launch and returning
+        // to the app, so a session spent moving between tabs read the same
+        // articles for as long as it lasted. Staleness-gated, so on a topic
+        // that was just fetched this costs nothing.
+        .task { await refresh(force: false) }
     }
 
     @ViewBuilder

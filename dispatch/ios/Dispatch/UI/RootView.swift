@@ -51,7 +51,12 @@ struct RootView: View {
         .onChange(of: scenePhase) { phase in
             switch phase {
             case .active:
-                Task { await refreshAll(force: false) }
+                // Coming back to the app is a request for now, not for
+                // whatever the interval setting last allowed. The floor caps
+                // how stale that can be: with Refresh on "after an hour", a
+                // wire that publishes every few minutes was an hour behind
+                // every time the app was reopened.
+                Task { await refreshAll(force: false, maximumAge: RootView.returnFloor) }
             case .background:
                 read.flush()
             default:
@@ -60,10 +65,20 @@ struct RootView: View {
         }
     }
 
-    private func refreshAll(force: Bool) async {
+    /// The most stale a feed may be when the app comes back to the foreground.
+    ///
+    /// Two minutes rather than zero so that flicking to another app and back
+    /// does not refetch a dozen sources each time.
+    static let returnFloor: TimeInterval = 120
+
+    private func refreshAll(force: Bool, maximumAge: TimeInterval? = nil) async {
+        var environment = settings.loadEnvironment(games: steamLibrary.activeGames)
+        if let maximumAge {
+            environment.staleAfter = min(environment.staleAfter, maximumAge)
+        }
         await feed.refresh(
             sources: catalog.enabledSources,
-            environment: settings.loadEnvironment(games: steamLibrary.activeGames),
+            environment: environment,
             force: force
         )
     }

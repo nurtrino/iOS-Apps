@@ -32,6 +32,7 @@ from feed_reference import (  # noqa: E402
     links_in, outbound_link,
     expand_placeholders, strip_remaining_tags, is_predominantly_latin,
     summary_constants, stable_hash_hex, brief_input_key, summary_prompt,
+    summary_bullets, merge_articles,
 )
 
 FAILURES = []
@@ -812,7 +813,8 @@ check("the endpoint is the Messages API",
       _SUMMARY.get("endpoint"), "https://api.anthropic.com/v1/messages")
 check("the anthropic-version header is the stable one",
       _SUMMARY.get("apiVersion"), "2023-06-01")
-check("the model is claude-opus-5", _SUMMARY.get("model"), "claude-opus-5")
+check("the model is Haiku, the cheap one", _SUMMARY.get("model"), "claude-haiku-4-5")
+check_true("the prompt revision is an integer", isinstance(_SUMMARY.get("promptRevision"), int))
 check_true("max_tokens is a sane bound",
            isinstance(_SUMMARY.get("maxTokens"), int) and 0 < _SUMMARY["maxTokens"] <= 2000)
 
@@ -833,13 +835,91 @@ check("FNV-1a of 'foobar'", stable_hash_hex("foobar"), "85944171f73967e8")
 
 # The input key must not care about order — a refresh that reorders the same
 # five headlines is not a change and must not bill.
+_MODEL = _SUMMARY["model"]
+_REVISION = _SUMMARY["promptRevision"]
+
+
+def _key(ids, model=None, revision=None):
+    return brief_input_key(ids,
+                           model if model is not None else _MODEL,
+                           revision if revision is not None else _REVISION)
+
+
 check("the input key is order-independent",
-      brief_input_key(["zerohedge:2", "twz:1", "cfp:3"]),
-      brief_input_key(["cfp:3", "zerohedge:2", "twz:1"]))
-check_true("a different set is a different key",
-           brief_input_key(["a", "b"]) != brief_input_key(["a", "c"]))
-check("the key is the hash of ids joined by newline, sorted",
-      brief_input_key(["b", "a"]), stable_hash_hex("a\nb"))
+      _key(["zerohedge:2", "twz:1", "cfp:3"]),
+      _key(["cfp:3", "zerohedge:2", "twz:1"]))
+check_true("a different set is a different key", _key(["a", "b"]) != _key(["a", "c"]))
+check("the key is the hash of the model, revision and sorted ids",
+      _key(["b", "a"]), stable_hash_hex("%s#%s\na\nb" % (_MODEL, _REVISION)))
+
+# Changing either one has to invalidate the cache, or a model switch leaves the
+# previous model's prose on screen until the news moves.
+check_true("switching model changes the key",
+           _key(["a"]) != _key(["a"], model="claude-opus-5"))
+check_true("bumping the prompt revision changes the key",
+           _key(["a"]) != _key(["a"], revision=_REVISION + 1))
+
+
+# --- Bullets ----------------------------------------------------------------
+#
+# The prompt asks for one point per line and no bullet characters. These cases
+# are what happens when a model ignores half of that.
+
+check("plain lines become bullets",
+      summary_bullets("Riyadh airport closes overnight\nUS tankers over the Gulf"),
+      ["Riyadh airport closes overnight", "US tankers over the Gulf"])
+check("dash markers are stripped",
+      summary_bullets("- First thing\n- Second thing"), ["First thing", "Second thing"])
+check("bullet glyphs are stripped",
+      summary_bullets("• First thing\n· Second thing"), ["First thing", "Second thing"])
+check("numbered markers are stripped",
+      summary_bullets("1. First thing\n2) Second thing"), ["First thing", "Second thing"])
+check("markdown bold is dropped", summary_bullets("**CPI** at 3.4%"), ["CPI at 3.4%"])
+check("blank lines are dropped",
+      summary_bullets("First thing\n\n\nSecond thing"), ["First thing", "Second thing"])
+check("a stray marker line is dropped", summary_bullets("First thing\n-"), ["First thing"])
+
+# The case that makes a naive marker-stripper wrong: a line that opens with a
+# decimal. Eating "3." here would print "4% and rising".
+check("a leading decimal survives",
+      summary_bullets("3.4% and rising"), ["3.4% and rising"])
+check("a leading year survives", summary_bullets("2026 deficit widens"), ["2026 deficit widens"])
+check("a price survives", summary_bullets("1) 2.5% cut priced in"), ["2.5% cut priced in"])
+
+# A model that returns one paragraph anyway still renders — as one bullet,
+# which is worse-looking than four but not broken.
+check("a paragraph is one bullet",
+      summary_bullets("One long sentence about several things at once."),
+      ["One long sentence about several things at once."])
+
+
+# --- Keeping what a feed drops ----------------------------------------------
+#
+# A feed is a window, not an archive. Citizen Free Press publishes dozens of
+# items a day and its RSS holds a fraction of them, so a refresh that replaced
+# the list lost anything that entered and left between two fetches. These pin
+# the merge that fixed it.
+
+check("a first fetch is kept as-is",
+      merge_articles([("a", 3), ("b", 2)], []), [("a", 3), ("b", 2)])
+
+# The story that scrolled off the feed is still in the app.
+check("items the feed dropped are retained",
+      merge_articles([("c", 5), ("b", 4)], [("b", 4), ("a", 1)]),
+      [("c", 5), ("b", 4), ("a", 1)])
+
+# A re-fetch is where a corrected title or a resolved outbound link arrives, so
+# the incoming copy has to win.
+check("the incoming copy wins a collision",
+      merge_articles([("a", 9)], [("a", 1)]), [("a", 9)])
+
+check("the result is newest first",
+      merge_articles([("new", 10)], [("old", 1), ("mid", 5)]),
+      [("new", 10), ("mid", 5), ("old", 1)])
+check("ties break on id, so ordering is stable",
+      merge_articles([("b", 5)], [("a", 5)]), [("a", 5), ("b", 5)])
+check("retention is bounded",
+      merge_articles([("a", 3)], [("b", 2), ("c", 1)], retained=2), [("a", 3), ("b", 2)])
 
 # The prompt, byte for byte.
 check("the prompt shape",

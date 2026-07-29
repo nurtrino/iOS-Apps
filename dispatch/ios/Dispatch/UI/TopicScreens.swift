@@ -37,7 +37,10 @@ struct WarScreen: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
 
-                BriefSection(topic: .war) { path.append($0) }
+                // The wire is excluded from the numbered rows — it has its own
+                // section a few inches below — but still feeds the summary.
+                BriefSection(topic: .war,
+                             excluding: [WarScreen.wireSourceID]) { path.append($0) }
 
                 WireSection(
                     sourceID: WarScreen.wireSourceID,
@@ -179,7 +182,8 @@ struct GamingScreen: View {
                 SteamRail(onOpen: { path.append($0) },
                           onOpenAll: { path.append(SourceRef(id: GamingScreen.steamSourceID)) })
 
-                BriefSection(topic: .gaming) { path.append($0) }
+                BriefSection(topic: .gaming,
+                             excluding: [GamingScreen.steamSourceID]) { path.append($0) }
 
                 TopicHeader(topic: .gaming, subtitle: subtitle)
                     .listRowInsets(EdgeInsets())
