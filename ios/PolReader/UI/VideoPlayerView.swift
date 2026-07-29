@@ -19,7 +19,9 @@ struct VideoPlayerView: View {
             switch VideoSupport.backend(for: attachment) {
             case .native:
                 if let url = MediaURL.file(board: board, attachment: attachment) {
-                    NativeVideoPlayer(url: url)
+                    NativeVideoPlayer(url: url) {
+                        onUnsupported("This video couldn't be played.")
+                    }
                 } else {
                     UnsupportedVideo(message: "Couldn't build a URL for this file.", action: nil)
                 }
@@ -46,39 +48,64 @@ struct VideoPlayerView: View {
 private struct NativeVideoPlayer: View {
 
     let url: URL
+    var onFailure: () -> Void = {}
+
     @State private var player: AVPlayer?
     /// Held so the loop observer can be torn down. Without this the observer
     /// keeps a strong reference to the player for the life of the app, and
     /// every clip opened leaks one.
     @State private var loopObserver: NSObjectProtocol?
+    @State private var statusObservation: NSKeyValueObservation?
+    @State private var failureMessage: String?
 
     var body: some View {
-        VideoPlayer(player: player)
-            .task(id: url) {
-                let player = AVPlayer(url: url)
-                player.isMuted = false
-                // Seek back to zero at the end rather than using
-                // AVPlayerLooper, which needs a queue player and a good deal
-                // more bookkeeping for a two-second clip.
-                loopObserver = NotificationCenter.default.addObserver(
-                    forName: .AVPlayerItemDidPlayToEndTime,
-                    object: player.currentItem,
-                    queue: .main
-                ) { [weak player] _ in
-                    player?.seek(to: .zero)
-                    player?.play()
-                }
-                self.player = player
-                player.play()
+        ZStack {
+            if let failureMessage {
+                UnsupportedVideo(message: failureMessage, action: onFailure)
+            } else {
+                VideoPlayer(player: player)
             }
-            .onDisappear {
-                if let loopObserver {
-                    NotificationCenter.default.removeObserver(loopObserver)
-                }
-                loopObserver = nil
-                player?.pause()
-                player = nil
+        }
+        .task(id: url) {
+            let item = AVPlayerItem(url: url)
+            let player = AVPlayer(playerItem: item)
+            player.isMuted = false
+
+            // Without this, a file AVFoundation cannot decode just shows a
+            // black rectangle forever, which is indistinguishable from a slow
+            // network and impossible for a reader to act on.
+            statusObservation = item.observe(\.status, options: [.new]) { item, _ in
+                guard item.status == .failed else { return }
+                let reason = item.error?.localizedDescription
+                    ?? "This video couldn't be played."
+                Task { @MainActor in failureMessage = reason }
             }
+
+            // Seek back to zero at the end rather than using AVPlayerLooper,
+            // which needs a queue player and a good deal more bookkeeping for
+            // a two-second clip.
+            loopObserver = NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: item,
+                queue: .main
+            ) { [weak player] _ in
+                player?.seek(to: .zero)
+                player?.play()
+            }
+
+            self.player = player
+            player.play()
+        }
+        .onDisappear {
+            if let loopObserver {
+                NotificationCenter.default.removeObserver(loopObserver)
+            }
+            loopObserver = nil
+            statusObservation?.invalidate()
+            statusObservation = nil
+            player?.pause()
+            player = nil
+        }
     }
 }
 
@@ -110,7 +137,15 @@ private struct WebVideoPlayer: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {
         guard context.coordinator.loadedURL != url else { return }
         context.coordinator.loadedURL = url
-        webView.loadHTMLString(Self.page(for: url), baseURL: url)
+        // Base the document on the media host so the <video> source is
+        // same-origin. A directory URL rather than the file itself, since the
+        // file is not a document and using it as a base is only incidentally
+        // equivalent.
+        var origin = URLComponents()
+        origin.scheme = url.scheme
+        origin.host = url.host
+        origin.path = "/"
+        webView.loadHTMLString(Self.page(for: url), baseURL: origin.url ?? url)
     }
 
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {

@@ -20,6 +20,13 @@ struct PostRow: View {
     @EnvironmentObject private var settings: SettingsStore
     @State private var spoilersRevealed = false
 
+    /// Only true while a tap on the body would reveal something.
+    private var needsSpoilerTap: Bool {
+        !spoilersRevealed
+            && !settings.revealSpoilersAutomatically
+            && CommentMarkup.containsSpoiler(blocks)
+    }
+
     /// The comment with any redundant parent-quote line removed.
     ///
     /// On a flat board `>>123` *is* how you address someone. Drawn underneath
@@ -168,15 +175,19 @@ struct PostRow: View {
         }
 
         if !blocks.isEmpty {
-            CommentBody(
+            let body = CommentBody(
                 blocks: blocks,
                 textScale: settings.textScale,
                 spoilersRevealed: spoilersRevealed || settings.revealSpoilersAutomatically
             )
-            .onTapGesture {
-                // Tapping the body reveals spoilers in this post only. Links
-                // inside the text keep their own tap handling.
-                if !spoilersRevealed { spoilersRevealed = true }
+            // The reveal gesture is attached only when this comment actually
+            // has a hidden spoiler. Attaching it unconditionally consumes every
+            // tap on the text — including the quotelinks and external links,
+            // which are the main thing anyone taps in a comment.
+            if needsSpoilerTap {
+                body.onTapGesture { spoilersRevealed = true }
+            } else {
+                body
             }
         }
 

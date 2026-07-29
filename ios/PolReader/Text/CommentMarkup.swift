@@ -598,6 +598,19 @@ enum CommentMarkup {
         return seen
     }
 
+    /// True when any paragraph carries a spoiler span.
+    ///
+    /// The renderer uses this to decide whether a tap-to-reveal gesture belongs
+    /// on a comment *at all*. Attaching one unconditionally swallows the taps
+    /// meant for the links inside the text, which is most of what a reader taps.
+    static func containsSpoiler(_ blocks: [CommentBlock]) -> Bool {
+        for block in blocks {
+            guard case .paragraph(let paragraph) = block else { continue }
+            if paragraph.spans.contains(where: { $0.style == .spoiler }) { return true }
+        }
+        return false
+    }
+
     /// True when this paragraph is nothing but quotelinks aimed at `targets`.
     ///
     /// Used by the threaded view. 4chan posts open with `>>123` naming the post

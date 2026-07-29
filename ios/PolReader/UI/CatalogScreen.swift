@@ -183,7 +183,8 @@ struct CatalogGridCell: View {
                 PostThumbnail(board: board, attachment: attachment,
                               mode: settings.thumbnailMode,
                               revealSpoilers: settings.revealSpoilersAutomatically,
-                              layout: .fill(maxHeight: 230))
+                              layout: .fill(maxHeight: 230),
+                              allowsReveal: false)
             }
 
             HStack(spacing: 4) {
@@ -238,7 +239,8 @@ struct CatalogListRow: View {
                 PostThumbnail(board: board, attachment: attachment,
                               mode: settings.thumbnailMode,
                               revealSpoilers: settings.revealSpoilersAutomatically,
-                              layout: .square(76))
+                              layout: .square(76),
+                              allowsReveal: false)
             }
 
             VStack(alignment: .leading, spacing: 4) {

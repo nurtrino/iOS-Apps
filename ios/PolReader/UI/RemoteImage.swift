@@ -95,6 +95,13 @@ struct PostThumbnail: View {
     /// aspect-correct cells but must *not* fetch 150 full-size images to draw
     /// one screen. Only a thread's own main image earns the full download.
     var useFullImage: Bool = false
+    /// Whether a tap here may reveal a concealed image.
+    ///
+    /// False wherever the surrounding view owns the tap — the catalog, where
+    /// tapping a thread's image means "open the thread". Without this, turning
+    /// on blur mode would bring back the bug where the image ate the tap and
+    /// only the title navigated.
+    var allowsReveal: Bool = true
 
     @State private var revealed = false
 
@@ -122,16 +129,34 @@ struct PostThumbnail: View {
         return false
     }
 
+    /// True only while a tap here would actually do something locally.
+    private var needsRevealTap: Bool { allowsReveal && (isHidden || isBlurred) }
+
     var body: some View {
+        // The reveal gesture is attached *only* when there is something to
+        // reveal. Attaching it unconditionally and testing the condition inside
+        // the closure looks equivalent and is not: the gesture still consumes
+        // every tap, so the enclosing NavigationLink never fires in the catalog
+        // and `onOpenAttachment` never fires in a thread. With media loading by
+        // default there is usually nothing to reveal, so that swallowed every
+        // tap on every image in the app.
+        if needsRevealTap {
+            decorated
+                .onTapGesture { revealed = true }
+        } else {
+            decorated
+        }
+    }
+
+    /// The image itself, with no gesture of its own — taps belong to whatever
+    /// contains it.
+    private var decorated: some View {
         content
             .clipShape(RoundedRectangle(cornerRadius: isFill ? 10 : 6))
             .overlay(alignment: .bottomLeading) { badge }
+            // Keeps the whole frame hit-testable so the parent's tap target
+            // covers the image, including any transparent regions.
             .contentShape(Rectangle())
-            .onTapGesture {
-                // A concealed image reveals on the first tap; after that, taps
-                // belong to the parent, which expands it.
-                if isHidden || isBlurred { revealed = true }
-            }
     }
 
     @ViewBuilder

@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from comment_parser_reference import (  # noqa: E402
     parse, extract_quoted_posts, decode_entities,
     Span, ITALIC, BOLD, UNDERLINE, SPOILER, GREENTEXT, DEADLINK, SHIFT_JIS,
-    link, quotelink, boardlink, is_quote_only_paragraph,
+    link, quotelink, boardlink, is_quote_only_paragraph, contains_spoiler,
 )
 
 FAILURES = []
@@ -355,6 +355,26 @@ check("only the leading quote line is droppable, not the body",
 check("a deadlink to the parent is not a quotelink and is kept",
       quote_only('<span class="deadlink">&gt;&gt;10</span>', [10]),
       [False])
+
+
+# --- Spoiler detection ------------------------------------------------------
+#
+# Drives whether a tap-to-reveal gesture is attached at all. A comment with no
+# spoiler must not carry one, or it eats the taps meant for its links.
+
+check("a comment with a spoiler is detected",
+      contains_spoiler(parse("before <s>hidden</s> after")), True)
+
+check("a plain comment has no spoiler",
+      contains_spoiler(parse("just text")), False)
+
+check("a comment with only a link has no spoiler",
+      contains_spoiler(parse('<a href="#p10" class="quotelink">&gt;&gt;10</a> hi')), False)
+
+check("an empty comment has no spoiler", contains_spoiler(parse("")), False)
+
+check("a spoiler on a later line still counts",
+      contains_spoiler(parse("one<br>two <s>x</s>")), True)
 
 
 # --- Report -----------------------------------------------------------------

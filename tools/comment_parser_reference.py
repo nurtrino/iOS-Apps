@@ -625,3 +625,19 @@ def is_quote_only_paragraph(paragraph, targets):
         if not ch.isspace() and not covered[i]:
             return False
     return True
+
+
+def contains_spoiler(blocks):
+    """True when any paragraph carries a spoiler span.
+
+    The renderer uses this to decide whether a tap-to-reveal gesture belongs on
+    a comment at all. Attaching one unconditionally swallows taps meant for the
+    links inside the text.
+    """
+    for block in blocks:
+        if block.kind != "paragraph":
+            continue
+        for span in block.spans:
+            if span.style == SPOILER:
+                return True
+    return False
