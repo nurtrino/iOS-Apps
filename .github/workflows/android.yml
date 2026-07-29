@@ -1,0 +1,81 @@
+name: Android
+
+on:
+  push:
+    branches:
+      - main
+      - 'claude/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      # No Gradle wrapper is committed: CI provisions Gradle at an explicit
+      # version instead, which keeps a binary out of the repository.
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.9'
+
+      - name: Build
+        working-directory: android
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Verify artifact
+        working-directory: android
+        run: |
+          set -euo pipefail
+          APK=$(find app/build/outputs/apk/release -name '*.apk' -print -quit)
+          if [ -z "$APK" ]; then
+            echo "::error::no APK produced"
+            exit 1
+          fi
+          cp "$APK" ../PolReader-release.apk
+          cd ..
+          ls -l PolReader-release.apk
+          sha256sum PolReader-release.apk
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PolReader-apk
+          path: PolReader-release.apk
+          if-no-files-found: error
+
+      # Shares the rolling release with the iOS workflow. Both may race, so
+      # creating the release is best-effort and the upload always clobbers.
+      - name: Publish to rolling release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=latest
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" \
+              --title "Latest build" \
+              --notes "Unsigned iOS build and debug-signed Android build of the /pol/ reader." \
+              --latest || true
+          gh release upload "$TAG" PolReader-release.apk --clobber
+
+          gh release view "$TAG" --json assets \
+            --jq '.assets[] | "\(.name) \(.size) bytes updated \(.updatedAt)"'

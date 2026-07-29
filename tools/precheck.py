@@ -35,14 +35,35 @@ def swift_files():
                 yield os.path.join(dirpath, name)
 
 
-def strip_swift(source):
-    """Remove comments and string literals so brackets inside them don't count.
+def kotlin_files():
+    root = os.path.join(REPO, "android")
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in ("build", ".gradle")]
+        for name in sorted(filenames):
+            if name.endswith(".kt") or name.endswith(".kts"):
+                yield os.path.join(dirpath, name)
 
-    Handles // line comments, /* */ block comments (which nest in Swift),
-    "..." strings with escapes, and \"\"\" multiline strings. String
-    interpolation is treated as ordinary string content, which means brackets
+
+def source_files():
+    for path in swift_files():
+        yield path, False
+    for path in kotlin_files():
+        yield path, True
+
+
+def strip_source(source, char_literals=False):
+    """Remove comments and literals so brackets inside them don't count.
+
+    Handles // line comments, /* */ block comments (which nest in both
+    languages), "..." strings with escapes, and \"\"\" multiline strings.
+    String interpolation is treated as ordinary string content, so brackets
     inside an interpolation are ignored — that under-counts rather than
     producing false positives, which is the right way to be wrong here.
+
+    `char_literals` handles Kotlin's '...' form. It matters more than it looks:
+    without it, the perfectly ordinary char literal '"' opens a string that
+    swallows the rest of the file and reports a phantom imbalance. Swift has no
+    char literal, and stripping ' there would eat real code, so it is opt-in.
     """
     out = []
     i = 0
@@ -93,6 +114,20 @@ def strip_swift(source):
                 i += 1
             continue
 
+        if char_literals and c == "'":
+            i += 1
+            while i < n:
+                if source[i] == "\\":
+                    i += 2
+                    continue
+                if source[i] == "'":
+                    i += 1
+                    break
+                if source[i] == "\n":
+                    break
+                i += 1
+            continue
+
         out.append(c)
         i += 1
 
@@ -103,12 +138,12 @@ def check_balance():
     pairs = {")": "(", "]": "[", "}": "{"}
     openers = set("([{")
 
-    for path in swift_files():
+    for path, char_literals in source_files():
         rel = os.path.relpath(path, REPO)
         with open(path, encoding="utf-8") as handle:
             source = handle.read()
 
-        stripped = strip_swift(source)
+        stripped = strip_source(source, char_literals=char_literals)
         stack = []
         for c in stripped:
             if c in openers:
@@ -128,7 +163,7 @@ def check_balance():
 
 def check_placeholders():
     markers = ["<#", "#>", "FIXME:", "XXX:"]
-    for path in swift_files():
+    for path, _ in source_files():
         rel = os.path.relpath(path, REPO)
         with open(path, encoding="utf-8") as handle:
             for number, line in enumerate(handle, 1):
@@ -137,15 +172,27 @@ def check_placeholders():
                         fail("%s:%d: leftover placeholder %r" % (rel, number, marker))
 
 
-def check_imports():
-    """Every Swift file should import something; a file that imports nothing is
-    usually one that was truncated mid-write."""
-    for path in swift_files():
+def check_declarations():
+    """Catch files that were truncated mid-write.
+
+    Kotlin is checked for its `package` line rather than for imports: a
+    self-contained file in its own package legitimately imports nothing, and
+    the parser is exactly that. Swift has no package declaration, so an import
+    is the best available proxy there. Gradle scripts have neither.
+    """
+    for path, is_kotlin in source_files():
         rel = os.path.relpath(path, REPO)
         with open(path, encoding="utf-8") as handle:
             source = handle.read()
-        if "import " not in source:
+
+        if path.endswith(".kts"):
+            pass
+        elif is_kotlin:
+            if not any(line.startswith("package ") for line in source.splitlines()):
+                fail("%s: no package declaration" % rel)
+        elif "import " not in source:
             fail("%s: no import statement" % rel)
+
         if not source.endswith("\n"):
             fail("%s: no trailing newline" % rel)
 
@@ -195,7 +242,7 @@ def run(label, argv):
 def main():
     check_balance()
     check_placeholders()
-    check_imports()
+    check_declarations()
     check_yaml()
     check_assets()
 
@@ -209,8 +256,9 @@ def main():
             print("  - " + problem)
         return 1
 
-    count = sum(1 for _ in swift_files())
-    print("\nprecheck passed (%d Swift files)" % count)
+    swift_count = sum(1 for _ in swift_files())
+    kotlin_count = sum(1 for _ in kotlin_files())
+    print("\nprecheck passed (%d Swift, %d Kotlin)" % (swift_count, kotlin_count))
     return 0
 
 
