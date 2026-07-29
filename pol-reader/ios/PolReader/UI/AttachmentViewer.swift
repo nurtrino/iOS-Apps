@@ -17,9 +17,10 @@ struct AttachmentViewer: View {
 
     /// How far the media has been dragged down by the close gesture.
     @State private var dragOffset: CGFloat = 0
-    /// True while an image is pinched in. Panning a zoomed image and swiping to
-    /// close are the same finger movement, so only one of them may be live.
-    @State private var isZoomed = false
+
+    /// The file on disk, once fetched. Shared and saved from here rather than
+    /// from its URL — see `MediaFile`.
+    @State private var localFile: URL?
 
     @State private var isSaving = false
     @State private var didSave = false
@@ -46,27 +47,31 @@ struct AttachmentViewer: View {
             chrome
                 .opacity(1 - dragProgress)
         }
-        // The close swipe is a UIKit recognizer rather than a `DragGesture` —
-        // see `SwipeDownToDismiss` for why the players make that necessary.
+        // Video only. Images close from the drag gesture inside `Zoomable`,
+        // which is the one that already gets those touches — see the note on
+        // `SwipeDownToDismiss`.
         .background(
             SwipeDownToDismiss(
-                isEnabled: !isZoomed,
-                onChanged: { translation in
-                    dragOffset = max(0, translation)
-                },
+                isEnabled: attachment.isVideo,
+                onChanged: dragChanged,
                 onEnded: { translation, velocity in
-                    // A flick counts as well as a long drag: matching only on
-                    // distance makes a fast swipe feel like it was ignored.
-                    if translation > dismissDistance || (velocity > 900 && translation > 24) {
-                        dismiss()
-                    } else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                            dragOffset = 0
-                        }
-                    }
+                    // Project the flick forward so the two paths can share one
+                    // rule; SwiftUI hands its own drag over already projected.
+                    dragEnded(translation, projected: translation + velocity * 0.25)
                 }
             )
         )
+        // Both the share sheet and Photos want the file itself. It is fetched
+        // once, here, and reused by both — for an image the bytes are already
+        // in the cache from displaying it, and for video this is the one extra
+        // download, which is the price of Save Video working at all.
+        .task(id: attachment) {
+            localFile = try? await MediaFile.fetch(board: board, attachment: attachment)
+        }
+        .onDisappear {
+            MediaFile.discard(localFile)
+            localFile = nil
+        }
         .sheet(item: $externalLink) { link in
             SafariSheet(url: link.url)
         }
@@ -94,7 +99,7 @@ struct AttachmentViewer: View {
             }
             .ignoresSafeArea()
         } else {
-            Zoomable(isZoomed: $isZoomed) {
+            Zoomable(onCloseDrag: dragChanged, onCloseDragEnded: dragEnded) {
                 if attachment.isAnimatedGIF {
                     RemoteAnimatedImage(
                         url: MediaURL.file(board: board, attachment: attachment),
@@ -116,7 +121,7 @@ struct AttachmentViewer: View {
 
     private var chrome: some View {
         VStack {
-            HStack(spacing: 14) {
+            HStack(spacing: 18) {
                 Button {
                     dismiss()
                 } label: {
@@ -124,13 +129,10 @@ struct AttachmentViewer: View {
                 }
                 Spacer()
                 saveButton
-                if let url = MediaURL.file(board: board, attachment: attachment) {
-                    ShareLink(item: url) {
-                        glyph("square.and.arrow.up.circle.fill")
-                    }
-                }
+                shareButton
             }
-            .padding()
+            .padding(.horizontal, 18)
+            .padding(.top, 8)
 
             Spacer()
 
@@ -177,11 +179,51 @@ struct AttachmentViewer: View {
         .accessibilityLabel("Save to Photos")
     }
 
+    /// Shares the file once there is one, and the link until then.
+    ///
+    /// The distinction is the whole point: handed a file, the share sheet
+    /// offers Save Image, Save Video and Save to Files. Handed the `i.4cdn.org`
+    /// URL — which is what this used to do — it offers Copy Link.
+    @ViewBuilder
+    private var shareButton: some View {
+        if let localFile {
+            ShareLink(item: localFile) {
+                glyph("square.and.arrow.up.circle.fill")
+            }
+        } else if let url = MediaURL.file(board: board, attachment: attachment) {
+            ShareLink(item: url) {
+                glyph("square.and.arrow.up.circle.fill")
+            }
+        }
+    }
+
+    /// Sized for a thumb on a photo, not for a toolbar: these three are the
+    /// only controls on the screen and there is nothing for them to crowd.
     private func glyph(_ systemName: String) -> some View {
         Image(systemName: systemName)
-            .font(.title2)
+            .font(.system(size: 34))
             .symbolRenderingMode(.palette)
             .foregroundStyle(.white, .black.opacity(0.45))
+            .padding(6)
+            .contentShape(Circle())
+    }
+
+    private func dragChanged(_ translation: CGFloat) {
+        dragOffset = max(0, translation)
+    }
+
+    /// - Parameter projected: where the drag would end up if the finger let go
+    ///   and it carried on. A flick has to count as well as a long slow drag,
+    ///   or a fast swipe reads as having been ignored.
+    private func dragEnded(_ translation: CGFloat, projected: CGFloat) {
+        if translation > dismissDistance
+            || (projected > dismissDistance * 2 && translation > 24) {
+            dismiss()
+        } else {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                dragOffset = 0
+            }
+        }
     }
 
     private func save() {
@@ -189,7 +231,7 @@ struct AttachmentViewer: View {
         isSaving = true
         Task { @MainActor in
             do {
-                try await MediaSaver.save(board: board, attachment: attachment)
+                try await MediaSaver.save(board: board, attachment: attachment, file: localFile)
                 isSaving = false
                 withAnimation { didSave = true }
                 // Long enough to read, short enough that it is gone before the
@@ -205,15 +247,21 @@ struct AttachmentViewer: View {
     }
 }
 
-/// Pinch, pan and double-tap zoom over whatever the viewer is showing.
+/// Pinch, pan, double-tap zoom and swipe-to-close over whatever the viewer is
+/// showing.
 ///
 /// Generic over its content because a GIF is played by a different view than a
-/// still image, and the zoom behaviour should not care which it is.
+/// still image, and none of this should care which it is.
+///
+/// The close swipe is reported from *this* gesture rather than handled outside,
+/// which was the first attempt and did nothing: a drag here and a drag out
+/// there are the same finger, and two recognizers over one image means one of
+/// them loses. Since the same gesture must pan a zoomed image anyway, it
+/// decides — pan when zoomed in, close when not.
 private struct Zoomable<Content: View>: View {
 
-    /// Reported upward so the viewer can stand its close gesture down: a drag
-    /// on a zoomed image means "pan", not "close".
-    @Binding var isZoomed: Bool
+    var onCloseDrag: (CGFloat) -> Void
+    var onCloseDragEnded: (CGFloat, CGFloat) -> Void
     @ViewBuilder var content: () -> Content
 
     @State private var scale: CGFloat = 1
@@ -225,6 +273,10 @@ private struct Zoomable<Content: View>: View {
         content()
             .scaleEffect(scale)
             .offset(offset)
+            // Without this the gesture area is the drawn image only, so a swipe
+            // that starts on the black either side of a portrait photo — which
+            // is most of the screen — is not a swipe on anything.
+            .contentShape(Rectangle())
             .gesture(
                 MagnificationGesture()
                     .onChanged { value in
@@ -238,13 +290,28 @@ private struct Zoomable<Content: View>: View {
             .simultaneousGesture(
                 DragGesture()
                     .onChanged { value in
-                        guard scale > 1 else { return }
+                        guard scale > 1 else {
+                            onCloseDrag(value.translation.height)
+                            return
+                        }
                         offset = CGSize(
                             width: committedOffset.width + value.translation.width,
                             height: committedOffset.height + value.translation.height
                         )
                     }
-                    .onEnded { _ in committedOffset = offset }
+                    .onEnded { value in
+                        guard scale > 1 else {
+                            // `predictedEndTranslation` is SwiftUI's own
+                            // projection of the flick, which is exactly the
+                            // question being asked of it here.
+                            onCloseDragEnded(
+                                value.translation.height,
+                                value.predictedEndTranslation.height
+                            )
+                            return
+                        }
+                        committedOffset = offset
+                    }
             )
             .onTapGesture(count: 2) {
                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -258,12 +325,6 @@ private struct Zoomable<Content: View>: View {
                     }
                 }
             }
-            .onChange(of: scale) { value in
-                // Only on the crossing: a pinch changes `scale` every frame,
-                // and each write up the binding re-renders the whole viewer.
-                let zoomed = value > 1.001
-                if zoomed != isZoomed { isZoomed = zoomed }
-            }
     }
 
     private func resetPan() {
@@ -272,18 +333,20 @@ private struct Zoomable<Content: View>: View {
     }
 }
 
-/// A downward swipe anywhere in the viewer, including over the players.
+/// A downward swipe over the video players, which is the one place a SwiftUI
+/// `DragGesture` cannot reach.
 ///
-/// A SwiftUI `DragGesture` is not enough here. `AVPlayerViewController` and
-/// `WKWebView` bring their own gesture recognizers, and a SwiftUI gesture
-/// attached to an ancestor loses the arbitration to them — which would leave
-/// swipe-to-close working over a still image and doing nothing over a video.
-/// That is worse than not having it at all.
-///
-/// A `UIPanGestureRecognizer` sits *alongside* those recognizers instead of
-/// competing with them: `cancelsTouchesInView` stays false and the delegate
+/// `AVPlayerViewController` and `WKWebView` bring their own gesture
+/// recognizers, and a SwiftUI gesture attached to an ancestor loses the
+/// arbitration to them. A `UIPanGestureRecognizer` sits *alongside* those
+/// instead of competing: `cancelsTouchesInView` stays false and the delegate
 /// allows simultaneous recognition, so the scrubber and the play button keep
 /// working while the swipe is still seen.
+///
+/// It is used *only* over video. Over an image it was a second recognizer
+/// competing with the drag gesture that pans a zoomed image, and lost — the
+/// swipe did nothing at all. That path now reports its own drag, and this one
+/// stays switched off.
 ///
 /// It attaches to the enclosing view controller's view rather than to the
 /// window, which is the tempting shortcut. The share sheet presents into the
@@ -383,7 +446,10 @@ private struct SwipeDownToDismiss: UIViewRepresentable {
                 if let controller = next as? UIViewController { return controller.view }
                 responder = next
             }
-            return nil
+            // No controller in the chain should not mean no gesture; the window
+            // covers the same area and is only second choice because of what
+            // else presents into it.
+            return window
         }
     }
 }

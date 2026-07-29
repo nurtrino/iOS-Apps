@@ -31,12 +31,12 @@ enum MediaSaver {
         }
     }
 
-    static func save(board: String, attachment: Attachment) async throws {
+    /// - Parameter file: A copy already on disk, if the caller has one. The
+    ///   viewer does, having fetched it for the share sheet, so saving from
+    ///   there costs no second download.
+    static func save(board: String, attachment: Attachment, file: URL? = nil) async throws {
         guard attachment.isSavableToPhotos else {
             throw Failure.unsupported(attachment.ext)
-        }
-        guard let url = MediaURL.file(board: board, attachment: attachment) else {
-            throw Failure.failed("Couldn't build a URL for this file.")
         }
 
         // Ask before downloading: a refused prompt should not have cost the
@@ -46,24 +46,22 @@ enum MediaSaver {
             throw Failure.denied
         }
 
-        let data: Data
-        do {
-            data = try await ImageLoader.shared.data(for: url)
-        } catch {
-            throw Failure.failed(ChanError.from(error).message)
+        // Photos reads the resource from a file and infers the type from its
+        // extension, so the copy keeps the original name and extension.
+        let local: URL
+        let ownsFile: Bool
+        if let file {
+            local = file
+            ownsFile = false
+        } else {
+            do {
+                local = try await MediaFile.fetch(board: board, attachment: attachment)
+            } catch {
+                throw Failure.failed(ChanError.from(error).message)
+            }
+            ownsFile = true
         }
-
-        // Photos reads the resource from a file, and infers the type from the
-        // extension — so the temporary copy keeps the original one.
-        let file = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension(attachment.ext.replacingOccurrences(of: ".", with: ""))
-        do {
-            try data.write(to: file, options: .atomic)
-        } catch {
-            throw Failure.failed("Couldn't write the file to disk.")
-        }
-        defer { try? FileManager.default.removeItem(at: file) }
+        defer { if ownsFile { MediaFile.discard(local) } }
 
         let resourceType: PHAssetResourceType = attachment.isVideo ? .video : .photo
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -75,7 +73,7 @@ enum MediaSaver {
                 // one place instead of two.
                 options.shouldMoveFile = false
                 options.originalFilename = attachment.displayName
-                request.addResource(with: resourceType, fileURL: file, options: options)
+                request.addResource(with: resourceType, fileURL: local, options: options)
             } completionHandler: { success, error in
                 if success {
                     continuation.resume()
