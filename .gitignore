@@ -2,16 +2,14 @@
 build/
 payload/
 *.ipa
+*.apk
 DerivedData/
 *.xcuserstate
 xcuserdata/
 
-# Android
-android/.gradle/
-android/build/
-android/app/build/
-android/local.properties
+# Gradle — unanchored so they match at any app's depth
 .gradle/
+local.properties
 
 # Python
 __pycache__/

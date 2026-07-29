@@ -28,7 +28,7 @@ jobs:
       - name: Static checks
         run: |
           python3 -m pip install --quiet pyyaml || true
-          python3 tools/precheck.py
+          python3 pol-reader/tools/precheck.py
 
       - name: Toolchain
         run: |
@@ -42,7 +42,7 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild build \
-            -project ios/PolReader.xcodeproj \
+            -project pol-reader/ios/PolReader.xcodeproj \
             -scheme PolReader \
             -configuration Release \
             -sdk iphoneos \

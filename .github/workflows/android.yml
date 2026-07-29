@@ -37,11 +37,11 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build
-        working-directory: android
+        working-directory: pol-reader/android
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Verify artifact
-        working-directory: android
+        working-directory: pol-reader/android
         run: |
           set -euo pipefail
           APK=$(find app/build/outputs/apk/release -name '*.apk' -print -quit)
@@ -49,8 +49,8 @@ jobs:
             echo "::error::no APK produced"
             exit 1
           fi
-          cp "$APK" ../PolReader-release.apk
-          cd ..
+          cp "$APK" ../../PolReader-release.apk
+          cd ../..
           ls -l PolReader-release.apk
           sha256sum PolReader-release.apk
 
