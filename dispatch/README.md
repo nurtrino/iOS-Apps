@@ -9,7 +9,7 @@ between, no tracking: the app talks to the publishers directly from the device.
 | **War** | Live streams when something is on, the WarFront Witness wire in its own block, then The War Zone and anything else sorted here |
 | **Politics** | Everything the classifier files as politics |
 | **Markets** | BTC and S&P 500 with sparklines, the US release calendar, then the economics feed |
-| **Gaming** | Steam news for your library across the top, then the wire — Wario64, Pirat Nation, CharlieIntel |
+| **Gaming** | Steam news for your library across the top, then the wire — CharlieIntel, Gematsu, VGC, PC Gamer |
 | **More** | Saved, Search, Sources, Streams, Steam, Settings |
 
 ## Sorting: how a story finds its section
@@ -85,16 +85,19 @@ says LIVE is worse than one that misses a stream by a minute. A schedule only
 decides *when to start checking*, so a show time being slightly wrong costs a
 late card rather than a wrong one.
 
-Streams play in-app through the official YouTube embed in a `WKWebView`. That is
-not a shortcut — it is the only legitimate option, since YouTube's media URLs
-are signed, short-lived and explicitly not for third-party players.
+Tapping a live card opens the stream in an in-app Safari sheet.
 
-The embed goes in an `<iframe>` inside a minimal local page whose `baseURL` is
-youtube.com, **not** in the web view's address bar. Navigating straight to
-`youtube.com/embed/<id>` is the obvious approach and it does not work: that
-endpoint expects to be framed, and as a top-level document it answers "Video
-unavailable — watch on YouTube" often enough to be useless, live streams
-especially.
+This was a custom `WKWebView` player around YouTube's official embed for two
+attempts, and it never worked. The reason is not fixable in a client: **a
+channel can switch embedding off**, and YouTube enforces that server-side with
+"Playback on other websites has been disabled by the video owner". Channels
+that live on ad revenue routinely do, since an embed on somebody else's page is
+harder to monetise — which is precisely the set of channels on this screen. No
+amount of iframe plumbing reaches it.
+
+`SFSafariViewController` is a real browser, so it plays whatever the site will
+play, embeddable or not. It is still a sheet inside the app, and it is one line
+of code instead of a hundred.
 
 **X livestreams cannot be detected.** There is no unauthenticated way to ask
 whether an X account is live, so the Mario Nawfal X card (off by default) always
@@ -142,13 +145,20 @@ needs a Web API key and a public profile; see below.
 
 **X** — see the next section, because it is the one that comes with a caveat.
 
-## X needs a bridge, and that is not fixable in the app
+## X: nothing ships as an X source
 
 X has no free public read API. Reading a timeline requires either a paid API
-tier or a server that reads on your behalf and republishes as RSS. There is no
-third option and no client-side workaround.
+tier or a server that reads on your behalf and republishes as RSS, and that
+server needs a logged-in session cookie from a real account. There is no third
+option and no client-side workaround.
 
-So Dispatch supports the bridges people actually run:
+Rather than ship sources that need all that before they work, the gaming
+accounts were replaced with the newsrooms' own feeds — **CharlieIntel** is
+literally the same newsroom as the X account, and Gematsu, VGC and PC Gamer
+cover the same beat. Those need no bridge, no token and no setup.
+
+The X support is still there for an account you add yourself in More › Sources.
+It supports the bridges people actually run:
 
 - **Nitter** — reads `<host>/<handle>/rss`
 - **RSSHub** — reads `<host>/twitter/user/<handle>`
@@ -219,19 +229,10 @@ If a service mints one opaque feed URL per account rather than a templated one,
 it cannot be a bridge — there is no `{handle}` to substitute. Paste those URLs
 into each X source's **Backup feeds** list instead, in More › Sources.
 
-**With no bridge configured the app still works.** Each X source falls back to a
-real RSS feed and says so with a one-line note under the section header:
-
-| X source | Falls back to |
-| --- | --- |
-| ZeroHedge Wire (`@zerohedge`) | ZeroHedge's own full feed |
-| Wario64 | PC Gamer, then Rock Paper Shotgun |
-| Pirat Nation (`@Pirat_Nation`) | Eurogamer |
-| CharlieIntel (`@charlieINTEL`) | charlieintel.com |
-| Genki (`@Genki_JPN`, off by default) | Gematsu |
-
-For ZeroHedge that is the same newsroom — the site feed rather than the
-timeline — so the Wire section is genuinely useful out of the box.
+**With no bridge configured an X source still works**, falling back to whatever
+backup feeds it carries and saying so in a line under the header — and rows
+served that way are badged with the host that actually answered rather than the
+handle that did not write them.
 
 ## Steam setup
 

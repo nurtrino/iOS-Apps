@@ -233,23 +233,6 @@ enum SourceCatalog {
             isBuiltIn: true
         ),
         Source(
-            id: "zerohedge-x",
-            name: "ZeroHedge Wire",
-            kind: .x,
-            endpoint: "zerohedge",
-            topicMode: .classified,
-            fixedTopic: .economics,
-            topicPrior: .economics,
-            // Without a bridge this is the whole source, so it points at the
-            // fullest feed available: titles alone still make a usable wire.
-            fallbackFeeds: [
-                "https://cms.zerohedge.com/fullrss2.xml",
-                "https://feeds.feedburner.com/zerohedge/feed",
-            ],
-            style: .wire,
-            isBuiltIn: true
-        ),
-        Source(
             id: "citizenfreepress",
             name: "Citizen Free Press",
             kind: .rss,
@@ -304,55 +287,92 @@ enum SourceCatalog {
             isBuiltIn: true
         ),
         Source(
-            id: "gaming-x",
-            name: "Wario64",
-            kind: .x,
-            // The long-running high-signal account for releases, deals and
-            // patch news.
-            endpoint: "Wario64",
-            topicMode: .fixed,
-            fixedTopic: .gaming,
-            fallbackFeeds: [
-                "https://www.pcgamer.com/rss/",
-                "https://www.rockpapershotgun.com/feed",
-            ],
-            style: .wire,
-            isBuiltIn: true
-        ),
-        Source(
-            id: "pirat-nation",
-            name: "Pirat Nation",
-            kind: .x,
-            endpoint: "Pirat_Nation",
-            topicMode: .fixed,
-            fixedTopic: .gaming,
-            fallbackFeeds: ["https://www.eurogamer.net/feed"],
-            style: .wire,
-            isBuiltIn: true
-        ),
-        Source(
-            id: "charlieintel",
+            id: "charlieintel-rss",
             name: "CharlieIntel",
-            kind: .x,
-            endpoint: "charlieINTEL",
+            kind: .rss,
+            endpoint: "https://www.charlieintel.com/feed/",
             topicMode: .fixed,
             fixedTopic: .gaming,
-            fallbackFeeds: ["https://www.charlieintel.com/feed/"],
+            fallbackFeeds: ["https://charlieintel.com/feed/"],
             style: .wire,
             isBuiltIn: true
         ),
         Source(
-            id: "gaming-x-genki",
-            name: "Genki",
-            kind: .x,
-            endpoint: "Genki_JPN",
+            id: "gematsu",
+            name: "Gematsu",
+            kind: .rss,
+            // Announcements, trailers and release dates — the closest thing in
+            // RSS to what the deals-and-drops X accounts were being read for.
+            endpoint: "https://www.gematsu.com/feed",
             topicMode: .fixed,
             fixedTopic: .gaming,
-            fallbackFeeds: ["https://www.gematsu.com/feed"],
+            fallbackFeeds: ["https://gematsu.com/feed"],
+            style: .wire,
+            isBuiltIn: true
+        ),
+        Source(
+            id: "vgc",
+            name: "Video Games Chronicle",
+            kind: .rss,
+            endpoint: "https://www.videogameschronicle.com/feed/",
+            topicMode: .fixed,
+            fixedTopic: .gaming,
+            fallbackFeeds: ["https://www.videogameschronicle.com/rss/"],
+            style: .wire,
+            isBuiltIn: true
+        ),
+        Source(
+            id: "pcgamer",
+            name: "PC Gamer",
+            kind: .rss,
+            endpoint: "https://www.pcgamer.com/rss/",
+            topicMode: .fixed,
+            fixedTopic: .gaming,
+            fallbackFeeds: ["https://www.pcgamer.com/feed/"],
+            style: .wire,
+            isBuiltIn: true
+        ),
+        Source(
+            id: "eurogamer",
+            name: "Eurogamer",
+            kind: .rss,
+            endpoint: "https://www.eurogamer.net/feed",
+            topicMode: .fixed,
+            fixedTopic: .gaming,
+            fallbackFeeds: ["https://www.eurogamer.net/?format=rss"],
             style: .wire,
             isEnabled: false,
             isBuiltIn: true
         ),
+        Source(
+            id: "rps",
+            name: "Rock Paper Shotgun",
+            kind: .rss,
+            endpoint: "https://www.rockpapershotgun.com/feed",
+            topicMode: .fixed,
+            fixedTopic: .gaming,
+            style: .wire,
+            isEnabled: false,
+            isBuiltIn: true
+        ),
+    ]
+
+    /// Built-ins that used to ship and no longer do.
+    ///
+    /// Merging only ever *adds* to a stored catalog, so a source removed from
+    /// this file would otherwise live forever on any device that already had
+    /// it — the X sources would still be there, still failing over to a backup
+    /// feed, on exactly the installs this change is meant to fix. Listing them
+    /// here is what actually retires them.
+    static let retired: Set<String> = [
+        "zerohedge-x",
+        "gaming-x",
+        "gaming-x-genki",
+        "pirat-nation",
+        // Replaced by `charlieintel-rss`. A new id rather than a change of
+        // kind on the old one, because the stored copy wins the merge and
+        // would have kept it an X source.
+        "charlieintel",
     ]
 
     static func `default`(withID id: String) -> Source? {

@@ -202,3 +202,23 @@ struct AdvisoryBanner: View {
         }
     }
 }
+
+/// The pulsing red dot. Small, but it is the thing the eye goes to on a
+/// monitoring screen, so it earns its own view.
+struct LiveDot: View {
+
+    @State private var isPulsing = false
+
+    var body: some View {
+        Circle()
+            .fill(Color.red)
+            .frame(width: 7, height: 7)
+            .scaleEffect(isPulsing ? 1.0 : 0.72)
+            .opacity(isPulsing ? 1.0 : 0.55)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
+                    isPulsing = true
+                }
+            }
+    }
+}

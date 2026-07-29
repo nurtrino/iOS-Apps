@@ -83,14 +83,24 @@ struct XBridgeScreen: View {
             }
 
             Section {
-                ForEach(xSources) { source in
-                    LabeledContent(source.name, value: "@" + XBridge.normalizeHandle(source.endpoint))
+                if xSources.isEmpty {
+                    Text("No X sources configured.")
                         .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(xSources) { source in
+                        LabeledContent(source.name, value: "@" + XBridge.normalizeHandle(source.endpoint))
+                            .font(.system(size: 14))
+                    }
                 }
             } header: {
                 Text("X sources")
             } footer: {
-                Text("Change these handles in Settings › Sources.")
+                Text(xSources.isEmpty
+                     ? "Nothing ships as an X source any more — the gaming accounts were replaced "
+                       + "by the newsrooms' own RSS feeds, which need no bridge and no token. Add "
+                       + "one in More › Sources if you want a specific account back."
+                     : "Change these handles in More › Sources.")
             }
 
             Section {
@@ -117,8 +127,10 @@ struct XBridgeScreen: View {
         "X has no free public read API, so no app can fetch a timeline directly. A bridge is a "
         + "small server that reads X and republishes it as RSS. Public instances get rate limited "
         + "quickly, so a self-hosted one is the arrangement that keeps working.\n\n"
-        + "With no bridge, X sources fall back to the publisher's own RSS feed — which for "
-        + "ZeroHedge is the same newsroom, just the site feed rather than the timeline."
+        + "Nothing ships as an X source now: the gaming accounts were replaced by the "
+        + "newsrooms' own RSS feeds, which need neither a bridge nor a token. This is here for "
+        + "an X account you add yourself, and any such source falls back to its backup feeds "
+        + "when the bridge cannot answer."
     }
 
     private func test() async {

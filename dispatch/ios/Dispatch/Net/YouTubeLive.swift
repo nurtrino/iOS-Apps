@@ -36,17 +36,6 @@ enum YouTubeLive {
         URL(string: "https://www.youtube.com/watch?v=\(videoID)")
     }
 
-    /// The embed used by the in-app player.
-    ///
-    /// `playsinline=1` keeps it in the sheet instead of handing off to the
-    /// system fullscreen player. This URL belongs in an `<iframe>` and not in a
-    /// web view's address bar — see `YouTubePlayer.page(for:)` for why that
-    /// distinction is the difference between playing and "Video unavailable".
-    static func embedURL(videoID: String) -> URL? {
-        URL(string: "https://www.youtube.com/embed/\(videoID)"
-            + "?playsinline=1&autoplay=1&rel=0&modestbranding=1&fs=1")
-    }
-
     /// Uploads and past streams, newest first. Needs a resolved `UC…` id.
     static func feedURL(channelID: String) -> URL? {
         URL(string: "https://www.youtube.com/feeds/videos.xml?channel_id=\(channelID)")

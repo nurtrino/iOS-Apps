@@ -59,7 +59,6 @@
 		2D93FE15A135FA5A94F180FC /* TopicFeedList.swift in Sources */ = {isa = PBXBuildFile; fileRef = C85EAC310134C51FB0218B23 /* TopicFeedList.swift */; };
 		1DCE5A280B4003A7477E8437 /* TopicScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5059EC23E81C5AF23B810A7E /* TopicScreens.swift */; };
 		7A148C487742E5CF82042E8A /* XBridgeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E6979FCF89F1CF79911861 /* XBridgeScreen.swift */; };
-		640DBD9A5701F97D6AB0A7AE /* YouTubePlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2B9796363960C792F02C4EB /* YouTubePlayer.swift */; };
 		7D1DBA83F5517888388F38D2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F4520D96AC0EDB42E750BB2B /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -118,7 +117,6 @@
 		C85EAC310134C51FB0218B23 /* TopicFeedList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicFeedList.swift; sourceTree = "<group>"; };
 		5059EC23E81C5AF23B810A7E /* TopicScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicScreens.swift; sourceTree = "<group>"; };
 		F1E6979FCF89F1CF79911861 /* XBridgeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBridgeScreen.swift; sourceTree = "<group>"; };
-		C2B9796363960C792F02C4EB /* YouTubePlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubePlayer.swift; sourceTree = "<group>"; };
 		F5BF48AA40CAD7891EB709FC /* Dispatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dispatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -215,7 +213,6 @@
 				C85EAC310134C51FB0218B23 /* TopicFeedList.swift */,
 				5059EC23E81C5AF23B810A7E /* TopicScreens.swift */,
 				F1E6979FCF89F1CF79911861 /* XBridgeScreen.swift */,
-				C2B9796363960C792F02C4EB /* YouTubePlayer.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -372,7 +369,6 @@
 				2D93FE15A135FA5A94F180FC /* TopicFeedList.swift in Sources */,
 				1DCE5A280B4003A7477E8437 /* TopicScreens.swift in Sources */,
 				7A148C487742E5CF82042E8A /* XBridgeScreen.swift in Sources */,
-				640DBD9A5701F97D6AB0A7AE /* YouTubePlayer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

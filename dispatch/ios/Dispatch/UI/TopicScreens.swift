@@ -16,7 +16,6 @@ struct WarScreen: View {
     @EnvironmentObject private var steamLibrary: SteamLibraryStore
 
     @State private var webLink: WebLink?
-    @State private var playing: LivePlayback?
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -28,7 +27,7 @@ struct WarScreen: View {
         NavigationStack {
             TopicFeedList(topic: .war, webLink: $webLink, excluding: [WarScreen.wireSourceID]) {
                 VStack(alignment: .leading, spacing: 0) {
-                    LiveRail(playing: $playing, webLink: $webLink)
+                    LiveRail(webLink: $webLink)
                     WireBlock(sourceID: WarScreen.wireSourceID, limit: 5)
                     TopicHeader(topic: .war, subtitle: subtitle)
                 }
@@ -39,7 +38,6 @@ struct WarScreen: View {
         }
         .tint(TopicTheme.accent(.war))
         .sheet(item: $webLink) { SafariSheet(url: $0.url).ignoresSafeArea() }
-        .sheet(item: $playing) { LivePlayerSheet(channel: $0.channel, state: $0.state) }
         .task {
             await live.refresh()
         }

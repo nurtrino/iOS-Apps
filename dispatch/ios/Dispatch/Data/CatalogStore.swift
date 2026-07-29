@@ -19,8 +19,14 @@ final class CatalogStore: ObservableObject {
             sources = SourceCatalog.defaults
             return
         }
-        sources = CatalogStore.merge(stored: DiskStore.load([Source].self, from: sourcesFile),
-                                     defaults: SourceCatalog.defaults)
+        let stored = DiskStore.load([Source].self, from: sourcesFile)
+        let merged = CatalogStore.merge(stored: stored, defaults: SourceCatalog.defaults)
+        sources = merged.sources
+
+        // Retiring a built-in has to reach disk, or it is undone by whatever
+        // writes next. Counting is not enough to detect it — a retirement and
+        // an addition in the same release cancel out — so `merge` reports it.
+        if merged.didRetire { persist() }
     }
 
     /// Stored order wins; built-ins the stored copy has never seen are appended.
@@ -29,10 +35,22 @@ final class CatalogStore: ObservableObject {
     /// appear for someone who already has a catalog on disk. Without it, new
     /// built-ins are invisible to every existing install — the classic way a
     /// feature ships to nobody.
-    private static func merge(stored: [Source]?, defaults: [Source]) -> [Source] {
-        guard let stored, !stored.isEmpty else { return defaults }
-        let known = Set(stored.map(\.id))
-        return stored + defaults.filter { $0.isBuiltIn && !known.contains($0.id) }
+    private static func merge(stored: [Source]?,
+                              defaults: [Source]) -> (sources: [Source], didRetire: Bool) {
+        guard let stored, !stored.isEmpty else { return (defaults, false) }
+
+        // Built-ins that no longer ship are dropped. Merging otherwise only
+        // ever adds, so a retired source would live forever on a device that
+        // already had it — which is the entire population the removal is for.
+        let surviving = stored.filter { source in
+            guard SourceCatalog.retired.contains(source.id) else { return true }
+            FeedCache.delete(sourceID: source.id)
+            return false
+        }
+
+        let known = Set(surviving.map(\.id))
+        let additions = defaults.filter { $0.isBuiltIn && !known.contains($0.id) }
+        return (surviving + additions, surviving.count != stored.count)
     }
 
     // MARK: - Queries
