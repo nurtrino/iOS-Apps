@@ -87,14 +87,12 @@ struct CommentBody: View {
         let count = paragraph.text.count
 
         for span in paragraph.spans {
+            // The bounds check is what keeps the offsets safe: AttributedString
+            // offers no `limitedBy:` form of `index(_:offsetByCharacters:)`, so
+            // walking past the end would trap rather than return nil.
             guard span.start >= 0, span.length > 0, span.end <= count else { continue }
-            guard let lower = result.index(result.startIndex,
-                                           offsetByCharacters: span.start,
-                                           limitedBy: result.endIndex),
-                  let upper = result.index(lower,
-                                           offsetByCharacters: span.length,
-                                           limitedBy: result.endIndex)
-            else { continue }
+            let lower = result.index(result.startIndex, offsetByCharacters: span.start)
+            let upper = result.index(lower, offsetByCharacters: span.length)
             let range = lower..<upper
 
             switch span.style {

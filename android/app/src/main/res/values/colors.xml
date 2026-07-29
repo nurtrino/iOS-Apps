@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sampled from the icon artwork rather than guessed at. -->
+    <color name="ic_launcher_background">#12161A</color>
+    <color name="accent">#8CB33F</color>
+</resources>
