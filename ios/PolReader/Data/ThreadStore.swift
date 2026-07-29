@@ -73,13 +73,13 @@ final class ThreadStore: ObservableObject {
         return index.distinctPosterIDs.count
     }
 
-    var hiddenByFiltersCount: Int {
-        max(0, outline.count - visibleNodes.count - collapsedHiddenCount)
-    }
-
-    private var collapsedHiddenCount: Int {
-        collapsed.reduce(0) { $0 + (descendantCounts[$1] ?? 0) }
-    }
+    /// How many posts the filter list removed.
+    ///
+    /// Measured when the filter pass runs, not derived by subtracting the
+    /// visible count: collapse also removes nodes, and nested collapsed
+    /// subtrees overlap, so any arithmetic over `descendantCounts`
+    /// double-counts and reports a number that is simply wrong.
+    @Published private(set) var hiddenByFiltersCount = 0
 
     func post(_ no: Int) -> Post? { index?.post(no) }
 
@@ -210,6 +210,7 @@ final class ThreadStore: ObservableObject {
         guard let index else {
             visibleNodes = []
             descendantCounts = [:]
+            hiddenByFiltersCount = 0
             return
         }
 
@@ -223,14 +224,16 @@ final class ThreadStore: ObservableObject {
 
         var nodes = outline
         if !filters.isEmpty {
+            let activeFilters = filters
             nodes = Outline.filtered(nodes) { postNo in
                 guard let post = index.post(postNo) else { return true }
                 // The OP is never hidden: hiding it would take the whole thread
                 // with it, which is the catalog's job, not the thread view's.
                 if post.isOP { return true }
-                return !self.filters.hides(post)
+                return !activeFilters.hides(post)
             }
         }
+        hiddenByFiltersCount = outline.count - nodes.count
         visibleNodes = Outline.visible(nodes, collapsed: collapsed)
     }
 

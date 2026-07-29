@@ -19,7 +19,11 @@ import java.io.IOException
  * Every transport failure, collapsed into the small set of things a reader can
  * be told. The mapping happens here so no screen ever interprets an error.
  */
-sealed class ChanError(val message: String) : Exception(message) {
+sealed class ChanError(override val message: String) : Exception(message) {
+    // `override` is required: Throwable already declares `message`, and a
+    // plain `val message` here is a hidden-member clash rather than a new
+    // property. Narrowing String? to String is a valid covariant override and
+    // is what lets callers use the text without a null check.
     object Offline : ChanError("No internet connection.")
     object TimedOut : ChanError("The request timed out.")
 

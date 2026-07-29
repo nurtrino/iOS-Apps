@@ -102,7 +102,13 @@ object CommentMarkup {
      */
     private const val MAX_ENTITY_LENGTH = 12
 
-    private data class Decoded(val char: Char, val next: Int)
+    /**
+     * Decoded text rather than a single `Char`: a code point above the BMP
+     * needs a surrogate pair, and returning one `Char` would silently drop
+     * every astral entity — leaving `&#128512;` on screen as literal text on
+     * Android while the Swift port rendered the emoji.
+     */
+    private data class Decoded(val text: String, val next: Int)
 
     private fun decodeEntity(s: String, i: Int): Decoded? {
         val limit = minOf(s.length, i + MAX_ENTITY_LENGTH + 2)
@@ -130,14 +136,14 @@ object CommentMarkup {
                 digits.toIntOrNull(10)
             } ?: return null
             if (code <= 0 || code > 0x10FFFF || code in 0xD800..0xDFFF) return null
-            // Only BMP scalars fit a single Char; anything above is dropped
-            // rather than producing a broken surrogate half.
-            if (code > 0xFFFF) return null
-            return Decoded(code.toChar(), semi + 1)
+            // String(Character.toChars(...)) yields the surrogate pair for
+            // anything above the BMP. Span offsets therefore count UTF-16 code
+            // units, which is what this port documents.
+            return Decoded(String(Character.toChars(code)), semi + 1)
         }
 
         val mapped = namedEntities[body] ?: return null
-        return Decoded(mapped, semi + 1)
+        return Decoded(mapped.toString(), semi + 1)
     }
 
     /** Decode every entity in a plain string. Used for `href` attributes. */
@@ -149,7 +155,7 @@ object CommentMarkup {
             if (s[i] == '&') {
                 val decoded = decodeEntity(s, i)
                 if (decoded != null) {
-                    out.append(decoded.char)
+                    out.append(decoded.text)
                     i = decoded.next
                     continue
                 }
@@ -505,7 +511,7 @@ object CommentMarkup {
             if (c == '&') {
                 val decoded = decodeEntity(html, i)
                 if (decoded != null) {
-                    text.append(decoded.char)
+                    text.append(decoded.text)
                     i = decoded.next
                     continue
                 }
@@ -563,7 +569,7 @@ object CommentMarkup {
             if (html[i] == '&') {
                 val decoded = decodeEntity(html, i)
                 if (decoded != null) {
-                    out.append(decoded.char)
+                    out.append(decoded.text)
                     i = decoded.next
                     continue
                 }
