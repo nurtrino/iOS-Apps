@@ -20,11 +20,16 @@ struct WarScreen: View {
 
     @Environment(\.scenePhase) private var scenePhase
 
+    /// The frontline Telegram channel. High enough volume that merging it into
+    /// the main list buries everything else, so it lives in its own block.
+    static let wireSourceID = "wfwitness"
+
     var body: some View {
         NavigationStack {
-            TopicFeedList(topic: .war, webLink: $webLink) {
+            TopicFeedList(topic: .war, webLink: $webLink, excluding: [WarScreen.wireSourceID]) {
                 VStack(alignment: .leading, spacing: 0) {
                     LiveRail(playing: $playing, webLink: $webLink)
+                    WireBlock(sourceID: WarScreen.wireSourceID, limit: 5)
                     TopicHeader(topic: .war, subtitle: subtitle)
                 }
             }
@@ -47,11 +52,8 @@ struct WarScreen: View {
 
     private var subtitle: String {
         let sources = catalog.sources(reaching: .war)
+            .filter { $0.id != WarScreen.wireSourceID }
         let count = feed.articles(for: .war, from: sources).count
-        let liveCount = live.liveNow.count
-        if liveCount > 0 {
-            return "\(liveCount) stream\(liveCount == 1 ? "" : "s") live · \(count) stories"
-        }
         return "\(count) stories from \(sources.count) source\(sources.count == 1 ? "" : "s")"
     }
 }
@@ -131,10 +133,15 @@ struct GamingScreen: View {
 
     @State private var webLink: WebLink?
 
+    static let steamSourceID = "steam"
+
     var body: some View {
         NavigationStack {
-            TopicFeedList(topic: .gaming, webLink: $webLink) {
-                TopicHeader(topic: .gaming, subtitle: subtitle)
+            TopicFeedList(topic: .gaming, webLink: $webLink, excluding: [GamingScreen.steamSourceID]) {
+                VStack(alignment: .leading, spacing: 0) {
+                    SteamRail()
+                    TopicHeader(topic: .gaming, subtitle: subtitle)
+                }
             }
             .navigationTitle("Gaming")
             .topicToolbar(.gaming)
@@ -146,12 +153,9 @@ struct GamingScreen: View {
 
     private var subtitle: String {
         let sources = catalog.sources(reaching: .gaming)
+            .filter { $0.id != GamingScreen.steamSourceID }
         let count = feed.articles(for: .gaming, from: sources).count
-        let games = steamLibrary.activeGames.count
-        if games > 0 {
-            return "\(count) stories · \(games) game\(games == 1 ? "" : "s") followed"
-        }
-        return "\(count) stories"
+        return "\(count) stories from the gaming wire"
     }
 }
 

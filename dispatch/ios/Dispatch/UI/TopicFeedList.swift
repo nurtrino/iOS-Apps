@@ -11,6 +11,9 @@ struct TopicFeedList<Header: View>: View {
 
     let topic: Topic
     @Binding var webLink: WebLink?
+    /// Sources pulled out into their own block in the header, so their items
+    /// do not also appear in the main list.
+    var excluding: Set<String> = []
     @ViewBuilder var header: () -> Header
 
     @EnvironmentObject private var catalog: CatalogStore
@@ -19,8 +22,15 @@ struct TopicFeedList<Header: View>: View {
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var steamLibrary: SteamLibraryStore
 
+    /// Everything feeding this topic, including the sources shown separately —
+    /// a refresh has to fetch those too.
     private var sources: [Source] { catalog.sources(reaching: topic) }
-    private var articles: [Article] { feed.articles(for: topic, from: sources) }
+
+    private var listedSources: [Source] {
+        excluding.isEmpty ? sources : sources.filter { !excluding.contains($0.id) }
+    }
+
+    private var articles: [Article] { feed.articles(for: topic, from: listedSources) }
 
     private var visibleArticles: [Article] {
         guard settings.hideRead else { return articles }
@@ -75,10 +85,12 @@ struct TopicFeedList<Header: View>: View {
                                  isRead: read.isRead(article),
                                  accent: TopicTheme.accent(topic))
 
-        // Which of these two a tap does is a setting, so the row itself has to
-        // be a different view — wrapping a NavigationLink in a Button that
-        // sometimes suppresses it leaves the chevron and the highlight behind.
-        if settings.linkBehavior == .safari, let link = article.link {
+        // Which of these two a tap does is a setting *and* a per-source
+        // override, so the row itself has to be a different view — wrapping a
+        // NavigationLink in a Button that sometimes suppresses it leaves the
+        // chevron and the highlight behind.
+        if settings.linkBehavior == .safari || source?.prefersWebPage == true,
+           let link = article.link {
             Button {
                 if settings.markReadOnOpen { read.markRead(article) }
                 webLink = WebLink(url: link)

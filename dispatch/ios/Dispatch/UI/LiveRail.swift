@@ -2,10 +2,14 @@ import SwiftUI
 
 /// The row of stream cards across the top of the War screen.
 ///
-/// Ordered live-first by `LiveStore`, so the thing that is actually happening
-/// is at the left edge without anyone scrolling for it. Channels that are off
-/// air still appear, because "back tonight at 10" is more useful on a
-/// monitoring screen than an empty space where a card used to be.
+/// **Only what is actually live.** An off-air card is a placeholder, and four
+/// placeholders across the top of a monitoring screen push the news down for
+/// nothing. When nothing is on, the rail is not there at all and the feed
+/// starts at the top of the screen where it belongs.
+///
+/// What is on tonight has not been lost — it is in More › Streams, next to the
+/// switch that controls it, which is where you go when you are asking that
+/// question rather than reading the news.
 struct LiveRail: View {
 
     @EnvironmentObject private var live: LiveStore
@@ -13,45 +17,52 @@ struct LiveRail: View {
     @Binding var playing: LivePlayback?
     @Binding var webLink: WebLink?
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Text("STREAMS")
-                    .font(.system(size: 12, weight: .heavy))
-                    .tracking(0.8)
-                    .foregroundStyle(TopicTheme.accent(.war))
+    /// Only channels confirmed to be broadcasting.
+    ///
+    /// An X channel can never appear here, since there is no unauthenticated
+    /// way to know whether one is live — those stay in More › Streams as a
+    /// link out rather than sitting on the news screen saying nothing.
+    private var visibleChannels: [LiveChannel] { live.liveNow }
 
-                if !live.liveNow.isEmpty {
-                    Text("\(live.liveNow.count) live")
-                        .font(.system(size: 11, weight: .bold))
+    var body: some View {
+        if !visibleChannels.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Text("LIVE NOW")
+                        .font(.system(size: 12, weight: .heavy))
+                        .tracking(0.8)
+                        .foregroundStyle(.red)
+
+                    Text("\(visibleChannels.count)")
+                        .font(.system(size: 11, weight: .bold).monospacedDigit())
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color.red, in: Capsule())
                         .foregroundStyle(.white)
-                }
 
-                Spacer()
+                    Spacer()
 
-                if live.isChecking {
-                    ProgressView().scaleEffect(0.7)
-                }
-            }
-            .padding(.horizontal, 16)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(live.sortedChannels) { channel in
-                        LiveCard(channel: channel,
-                                 state: live.state(for: channel),
-                                 playing: $playing,
-                                 webLink: $webLink)
+                    if live.isChecking {
+                        ProgressView().scaleEffect(0.7)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 2)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(visibleChannels) { channel in
+                            LiveCard(channel: channel,
+                                     state: live.state(for: channel),
+                                     playing: $playing,
+                                     webLink: $webLink)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 2)
+                }
             }
+            .padding(.top, 8)
         }
-        .padding(.top, 8)
     }
 }
 

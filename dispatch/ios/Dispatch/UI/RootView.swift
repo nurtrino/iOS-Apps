@@ -25,19 +25,15 @@ struct RootView: View {
         TabView {
             WarScreen()
                 .tabItem { Label(Topic.war.title, systemImage: Topic.war.systemImage) }
-                .badge(unread(.war))
 
             PoliticsScreen()
                 .tabItem { Label(Topic.politics.title, systemImage: Topic.politics.systemImage) }
-                .badge(unread(.politics))
 
             EconomicsScreen()
                 .tabItem { Label(Topic.economics.title, systemImage: Topic.economics.systemImage) }
-                .badge(unread(.economics))
 
             GamingScreen()
                 .tabItem { Label(Topic.gaming.title, systemImage: Topic.gaming.systemImage) }
-                .badge(unread(.gaming))
 
             MoreScreen()
                 .tabItem { Label("More", systemImage: "ellipsis.circle") }
@@ -62,13 +58,6 @@ struct RootView: View {
                 break
             }
         }
-    }
-
-    /// Badges are capped: past a certain number the exact count stops meaning
-    /// anything and only the fact that there is a lot does.
-    private func unread(_ topic: Topic) -> Int {
-        let articles = feed.articles(for: topic, from: catalog.sources(reaching: topic))
-        return min(read.unreadCount(in: articles), 99)
     }
 
     private func refreshAll(force: Bool) async {

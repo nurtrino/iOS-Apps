@@ -25,6 +25,7 @@ struct YouTubePlayer: UIViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.scrollView.isScrollEnabled = false
+        webView.scrollView.bounces = false
         webView.isOpaque = false
         webView.backgroundColor = .black
         webView.scrollView.backgroundColor = .black
@@ -32,13 +33,55 @@ struct YouTubePlayer: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        guard let url = YouTubeLive.embedURL(videoID: videoID) else { return }
         // Only reload when the video actually changed. `updateUIView` runs on
         // every parent state change, and reloading on each one restarts the
         // stream every time the surrounding view redraws.
         guard context.coordinator.loadedVideoID != videoID else { return }
         context.coordinator.loadedVideoID = videoID
-        webView.load(URLRequest(url: url))
+
+        webView.loadHTMLString(
+            YouTubePlayer.page(for: videoID),
+            baseURL: URL(string: "https://www.youtube.com")
+        )
+    }
+
+    /// The embed, wrapped in a page, rather than loaded as the page.
+    ///
+    /// Navigating a web view straight to `youtube.com/embed/<id>` is the
+    /// obvious thing and it does not work: that endpoint is meant to be framed,
+    /// and as a top-level document it frequently answers with "Video
+    /// unavailable — watch on YouTube", which is what this player was doing.
+    /// Live streams refuse more often than uploads do.
+    ///
+    /// Serving a minimal local page whose `baseURL` is youtube.com and putting
+    /// the embed in an `<iframe>` gives it the framing context and the matching
+    /// origin it expects, which is the arrangement that actually plays.
+    static func page(for videoID: String) -> String {
+        // The id comes from parsing a page, so it is escaped rather than
+        // trusted — it is interpolated into both markup and a URL.
+        let safeID = videoID.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, \
+        maximum-scale=1, user-scalable=no">
+        <style>
+        html, body { margin: 0; padding: 0; background: #000; height: 100%; overflow: hidden; }
+        .frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        iframe { width: 100%; height: 100%; border: 0; display: block; }
+        </style>
+        </head>
+        <body>
+        <div class="frame">
+        <iframe src="\(YouTubeLive.embedURL(videoID: safeID)?.absoluteString ?? "")"
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowfullscreen></iframe>
+        </div>
+        </body>
+        </html>
+        """
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }

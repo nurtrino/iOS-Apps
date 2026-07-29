@@ -6,10 +6,10 @@ between, no tracking: the app talks to the publishers directly from the device.
 
 | Tab | What is on it |
 | --- | --- |
-| **War** | Live stream rail, the WarFront Witness Telegram wire, The War Zone, and anything else sorted here |
+| **War** | Live streams when something is on, the WarFront Witness wire in its own block, then The War Zone and anything else sorted here |
 | **Politics** | Everything the classifier files as politics |
 | **Markets** | BTC and S&P 500 with sparklines, the US release calendar, then the economics feed |
-| **Gaming** | Steam news for your library, Wario64, Pirat Nation, CharlieIntel |
+| **Gaming** | Steam news for your library across the top, then the wire — Wario64, Pirat Nation, CharlieIntel |
 | **More** | Saved, Search, Sources, Streams, Steam, Settings |
 
 ## Sorting: how a story finds its section
@@ -48,9 +48,29 @@ The lexicon lives in `ios/Dispatch/Net/TopicLexicon.swift` and is **parsed
 directly by the tests** rather than copied into them, so the table the tests
 exercise is always the table the app ships.
 
+## Rate mismatch, and why two sources get their own block
+
+Merging by timestamp assumes everything arrives at a similar rate. Two sources
+break that badly enough to need handling:
+
+- **WarFront Witness** posts dozens of times an hour. Interleaved, it *is* the
+  War feed, and every analysis piece ends up under a wall of one-line updates.
+- **Steam** publishes a handful of patch notes a day, against three X accounts
+  posting all day — so the news you opened the Gaming tab for was gone within
+  an hour of a refresh.
+
+Both are pulled out of their topic's main list into a fixed block at the top:
+Steam as a horizontal rail of game cards, WarFront Witness as the newest five
+with the rest one tap away. The main list underneath goes back to being
+readable.
+
 ## Live streams
 
-The War tab watches three YouTube channels and reports which are on:
+The War tab watches three YouTube channels and shows **only the ones that are
+actually on**. An off-air card is a placeholder, and a row of placeholders
+pushes the news down for nothing — when nothing is live the rail is not there
+at all. What is on tonight lives in More › Streams, next to the switch that
+controls it.
 
 | Channel | Schedule |
 | --- | --- |
@@ -68,6 +88,13 @@ late card rather than a wrong one.
 Streams play in-app through the official YouTube embed in a `WKWebView`. That is
 not a shortcut — it is the only legitimate option, since YouTube's media URLs
 are signed, short-lived and explicitly not for third-party players.
+
+The embed goes in an `<iframe>` inside a minimal local page whose `baseURL` is
+youtube.com, **not** in the web view's address bar. Navigating straight to
+`youtube.com/embed/<id>` is the obvious approach and it does not work: that
+endpoint expects to be framed, and as a top-level document it answers "Video
+unavailable — watch on YouTube" often enough to be useless, live streams
+especially.
 
 **X livestreams cannot be detected.** There is no unauthenticated way to ask
 whether an X account is live, so the Mario Nawfal X card (off by default) always
@@ -295,6 +322,11 @@ installing.
 - **iOS 16 and later.** Deployment target 16.0, no third-party dependencies.
 - **Search is local.** It filters the stories already on the device and says how
   many that is. None of these sources offers a search API worth using.
+- **A link aggregator opens the web page**, not the reader. Citizen Free Press
+  ships with this on: its feed items are pointers to somebody else's article
+  with an empty description, so the reader had nothing to render and showed a
+  stub with a button on it. Any source can be switched either way in
+  More › Sources.
 - **Read state is capped** at 8,000 articles, oldest dropped first. Unbounded, it
   only ever grows.
 - **Saved articles keep their own copy** of the text. Feeds roll off after twenty

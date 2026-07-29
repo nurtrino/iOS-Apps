@@ -52,6 +52,7 @@
 		BEBC0250F571C48C4F8A4C32 /* SavedScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B0E3DB0426F78163AB9F2E8 /* SavedScreen.swift */; };
 		C7A99FE99A498D8EE5BB4852 /* SearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC5C00AFE1A5737AEDBCAF0 /* SearchScreen.swift */; };
 		CF4BA855141D5184061311B0 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9A714D58463A05EB7CBBF81 /* SettingsScreen.swift */; };
+		4FF87FD2C5A74D16E0FF3EC4 /* SourceBlocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D44E44FDA3FB3D85014CF2 /* SourceBlocks.swift */; };
 		7F229921B6E8FBCCCCDAD88E /* SourcesScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9E3DD25135C9C0D53F5BBA0 /* SourcesScreen.swift */; };
 		FAA11FA40B6BDF4279B1A4F4 /* SteamScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 413A51F272E252AC79264436 /* SteamScreen.swift */; };
 		2D93FE15A135FA5A94F180FC /* TopicFeedList.swift in Sources */ = {isa = PBXBuildFile; fileRef = C85EAC310134C51FB0218B23 /* TopicFeedList.swift */; };
@@ -109,6 +110,7 @@
 		3B0E3DB0426F78163AB9F2E8 /* SavedScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedScreen.swift; sourceTree = "<group>"; };
 		0CC5C00AFE1A5737AEDBCAF0 /* SearchScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchScreen.swift; sourceTree = "<group>"; };
 		E9A714D58463A05EB7CBBF81 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
+		B5D44E44FDA3FB3D85014CF2 /* SourceBlocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceBlocks.swift; sourceTree = "<group>"; };
 		B9E3DD25135C9C0D53F5BBA0 /* SourcesScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourcesScreen.swift; sourceTree = "<group>"; };
 		413A51F272E252AC79264436 /* SteamScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SteamScreen.swift; sourceTree = "<group>"; };
 		C85EAC310134C51FB0218B23 /* TopicFeedList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicFeedList.swift; sourceTree = "<group>"; };
@@ -204,6 +206,7 @@
 				3B0E3DB0426F78163AB9F2E8 /* SavedScreen.swift */,
 				0CC5C00AFE1A5737AEDBCAF0 /* SearchScreen.swift */,
 				E9A714D58463A05EB7CBBF81 /* SettingsScreen.swift */,
+				B5D44E44FDA3FB3D85014CF2 /* SourceBlocks.swift */,
 				B9E3DD25135C9C0D53F5BBA0 /* SourcesScreen.swift */,
 				413A51F272E252AC79264436 /* SteamScreen.swift */,
 				C85EAC310134C51FB0218B23 /* TopicFeedList.swift */,
@@ -359,6 +362,7 @@
 				BEBC0250F571C48C4F8A4C32 /* SavedScreen.swift in Sources */,
 				C7A99FE99A498D8EE5BB4852 /* SearchScreen.swift in Sources */,
 				CF4BA855141D5184061311B0 /* SettingsScreen.swift in Sources */,
+				4FF87FD2C5A74D16E0FF3EC4 /* SourceBlocks.swift in Sources */,
 				7F229921B6E8FBCCCCDAD88E /* SourcesScreen.swift in Sources */,
 				FAA11FA40B6BDF4279B1A4F4 /* SteamScreen.swift in Sources */,
 				2D93FE15A135FA5A94F180FC /* TopicFeedList.swift in Sources */,

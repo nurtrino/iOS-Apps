@@ -187,15 +187,23 @@ struct SourceEditor: View {
                     }
                 }
 
+                Toggle("Open the web page", isOn: $source.prefersWebPage)
+
                 Toggle("Enabled", isOn: $source.isEnabled)
             } header: {
                 Text("Filing")
             } footer: {
-                Text(source.topicMode == .fixed
-                     ? "Everything from this source goes to \(source.fixedTopic.title). Right for a "
-                       + "source that only ever publishes one kind of news."
-                     : "Each story is scored against the War, Politics and Markets vocabularies "
-                       + "and filed by whichever wins. “Usually about” breaks ties.")
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(source.topicMode == .fixed
+                         ? "Everything from this source goes to \(source.fixedTopic.title). Right for a "
+                           + "source that only ever publishes one kind of news."
+                         : "Each story is scored against the War, Politics and Markets vocabularies "
+                           + "and filed by whichever wins. “Usually about” breaks ties.")
+
+                    Text("“Open the web page” skips the reader. Turn it on for a link aggregator, "
+                         + "whose items are pointers to somebody else's article rather than "
+                         + "articles of their own — the reader has nothing to show for those.")
+                }
             }
 
             if source.kind != .steam {

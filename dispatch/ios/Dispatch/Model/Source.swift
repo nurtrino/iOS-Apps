@@ -106,6 +106,16 @@ struct Source: Identifiable, Codable, Hashable {
     /// one that yields items wins.
     var fallbackFeeds: [String]
     var style: SourceStyle
+
+    /// Skip the reader and open the publisher's page.
+    ///
+    /// For a link aggregator this is the only behaviour that makes sense. Its
+    /// feed items *are* links — the headline points at somebody else's article
+    /// and the description is empty or a one-line teaser — so the reader has
+    /// nothing to render and shows a stub with a button on it. Going straight
+    /// to the page turns two taps and a dead end into one tap.
+    var prefersWebPage: Bool
+
     var isEnabled: Bool
     /// Built-in sources can be disabled and edited but not deleted, so a bad
     /// edit is always one "Reset" away from working again.
@@ -120,6 +130,7 @@ struct Source: Identifiable, Codable, Hashable {
          topicPrior: Topic? = nil,
          fallbackFeeds: [String] = [],
          style: SourceStyle = .article,
+         prefersWebPage: Bool = false,
          isEnabled: Bool = true,
          isBuiltIn: Bool = false) {
         self.id = id
@@ -131,6 +142,7 @@ struct Source: Identifiable, Codable, Hashable {
         self.topicPrior = topicPrior
         self.fallbackFeeds = fallbackFeeds
         self.style = style
+        self.prefersWebPage = prefersWebPage
         self.isEnabled = isEnabled
         self.isBuiltIn = isBuiltIn
     }
@@ -165,6 +177,18 @@ struct Source: Identifiable, Codable, Hashable {
         style = (try? container.decode(SourceStyle.self, forKey: .style)) ?? .article
         isEnabled = (try? container.decode(Bool.self, forKey: .isEnabled)) ?? true
         isBuiltIn = (try? container.decode(Bool.self, forKey: .isBuiltIn)) ?? false
+
+        // A field added after someone already has a catalog on disk needs a
+        // better default than `false`, or the new behaviour ships to nobody who
+        // already has the app — the stored copy simply has no value for the key
+        // and quietly wins. Falling back to what the app *ships* for this
+        // source id means an existing install picks the change up, while a
+        // source the user actually edited keeps whatever they set.
+        if let stored = try? container.decode(Bool.self, forKey: .prefersWebPage) {
+            prefersWebPage = stored
+        } else {
+            prefersWebPage = SourceCatalog.default(withID: id)?.prefersWebPage ?? false
+        }
     }
 }
 
@@ -222,6 +246,7 @@ enum SourceCatalog {
             topicPrior: .politics,
             fallbackFeeds: ["https://citizenfreepress.com/feed/rss/"],
             style: .wire,
+            prefersWebPage: true,
             isBuiltIn: true
         ),
 
