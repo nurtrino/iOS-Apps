@@ -95,14 +95,40 @@ struct XBridge: Codable, Equatable {
 
     /// The host with a scheme and without a trailing slash, so a pasted
     /// "nitter.net/" and "https://nitter.net" build the same URL.
+    ///
+    /// An explicit scheme is always kept. When there is none, the guess depends
+    /// on where the host lives: a self-hosted bridge on the LAN is nearly
+    /// always plain http on a port, and defaulting those to https produces a
+    /// TLS failure that reads like the bridge being down. Anything on the
+    /// public internet defaults to https, because it should.
     var normalizedHost: String {
         var text = host.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "" }
         while text.hasSuffix("/") { text.removeLast() }
-        if !text.lowercased().hasPrefix("http://") && !text.lowercased().hasPrefix("https://") {
-            text = "https://" + text
+
+        let lowered = text.lowercased()
+        if lowered.hasPrefix("http://") || lowered.hasPrefix("https://") { return text }
+        return (XBridge.isLocalHost(text) ? "http://" : "https://") + text
+    }
+
+    /// Addresses `NSAllowsLocalNetworking` covers, which are exactly the ones
+    /// that can be reached over cleartext.
+    static func isLocalHost(_ hostText: String) -> Bool {
+        // Strip any port before testing, or "192.168.1.5:1200" never matches.
+        let bare = hostText.split(separator: ":").first.map(String.init)?.lowercased() ?? ""
+
+        if bare == "localhost" || bare.hasSuffix(".local") { return true }
+        if bare.hasPrefix("192.168.") || bare.hasPrefix("10.") { return true }
+        if bare.hasPrefix("127.") { return true }
+
+        // 172.16.0.0/12 is 172.16 through 172.31, not all of 172.
+        if bare.hasPrefix("172.") {
+            let parts = bare.split(separator: ".")
+            if parts.count >= 2, let second = Int(parts[1]), (16...31).contains(second) {
+                return true
+            }
         }
-        return text
+        return false
     }
 
     /// Accepts `@name`, `name`, or any x.com/twitter.com profile URL.

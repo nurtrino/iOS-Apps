@@ -28,7 +28,7 @@ from feed_reference import (  # noqa: E402
     remove_opaque_sections, canonical_key, headline, message_chunks,
     balanced_div, parse_telegram, normalize_channel, normalize_handle,
     steam_html, parse_date, replacement, last_attribute_value,
-    load_lexicon, classify, normalise,
+    load_lexicon, classify, normalise, is_local_host, normalized_host,
 )
 
 FAILURES = []
@@ -633,6 +633,43 @@ check("normalisation collapses whitespace",
 
 check("normalisation keeps hyphens and ampersands",
       normalise("S&P 500 and the 10-year"), "s&p 500 and the 10-year")
+
+
+# --- X bridge hosts ---------------------------------------------------------
+#
+# A self-hosted bridge is nearly always plain http on a port on the LAN, and
+# defaulting those to https produces a TLS failure that reads exactly like the
+# bridge being down. ATS permits cleartext to precisely these addresses via
+# NSAllowsLocalNetworking, so the scheme guess and the ATS exception have to
+# agree about what "local" means.
+
+check("a LAN address is local", is_local_host("192.168.1.50:1200"), True)
+check("a 10-net address is local", is_local_host("10.0.0.4:1200"), True)
+check("loopback is local", is_local_host("127.0.0.1:1200"), True)
+check("localhost is local", is_local_host("localhost:1200"), True)
+check("an mDNS name is local", is_local_host("nas.local:1200"), True)
+
+# 172.16.0.0/12 is 172.16 through 172.31 — not all of 172.
+check("172.16 is local", is_local_host("172.16.0.9"), True)
+check("172.31 is local", is_local_host("172.31.255.1"), True)
+check("172.15 is not local", is_local_host("172.15.0.1"), False)
+check("172.32 is not local", is_local_host("172.32.0.1"), False)
+
+check("a public host is not local", is_local_host("rsshub.example.com"), False)
+check("a public host that merely starts with 10 is not local",
+      is_local_host("10minutemail.com"), False)
+
+check("a LAN host defaults to http",
+      normalized_host("192.168.1.50:1200"), "http://192.168.1.50:1200")
+
+check("a public host defaults to https",
+      normalized_host("rsshub.example.com"), "https://rsshub.example.com")
+
+check("an explicit scheme is respected",
+      normalized_host("http://rsshub.example.com"), "http://rsshub.example.com")
+
+check("a trailing slash is dropped",
+      normalized_host("https://nitter.example.com/"), "https://nitter.example.com")
 
 
 # --- Report -----------------------------------------------------------------

@@ -963,3 +963,30 @@ def classify(title, body, prior, fallback, tables=None):
     margin = (top - runner_up) / top
     evidence = [term for term, _ in sorted(hits[winner], key=lambda pair: -pair[1])[:4]]
     return winner, min(1.0, margin / DECISIVE_MARGIN), evidence, False
+
+
+def is_local_host(host_text):
+    """Mirrors XBridge.isLocalHost."""
+    bare = host_text.split(":")[0].lower() if host_text else ""
+    if bare == "localhost" or bare.endswith(".local"):
+        return True
+    if bare.startswith("192.168.") or bare.startswith("10.") or bare.startswith("127."):
+        return True
+    if bare.startswith("172."):
+        parts = bare.split(".")
+        if len(parts) >= 2 and parts[1].isdigit() and 16 <= int(parts[1]) <= 31:
+            return True
+    return False
+
+
+def normalized_host(host):
+    """Mirrors XBridge.normalizedHost."""
+    text = host.strip()
+    if not text:
+        return ""
+    while text.endswith("/"):
+        text = text[:-1]
+    lowered = text.lower()
+    if lowered.startswith("http://") or lowered.startswith("https://"):
+        return text
+    return ("http://" if is_local_host(text) else "https://") + text

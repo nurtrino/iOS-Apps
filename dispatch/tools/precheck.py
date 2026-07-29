@@ -284,6 +284,21 @@ def check_info_plist():
         fail("Info.plist: UIBackgroundModes must contain 'fetch' — the scheduled "
              "refresh is dropped without it")
 
+    # A self-hosted X bridge on the LAN is served over plain http, and ATS
+    # blocks that unless NSAllowsLocalNetworking is set. Nothing about the
+    # failure points at the plist — the request just fails, looking exactly
+    # like the bridge being down.
+    ats = plist.get("NSAppTransportSecurity") or {}
+    if not ats.get("NSAllowsLocalNetworking"):
+        fail("Info.plist: NSAppTransportSecurity.NSAllowsLocalNetworking missing — "
+             "a self-hosted bridge on http://192.168.x.x would be blocked by ATS")
+    if ats.get("NSAllowsArbitraryLoads"):
+        fail("Info.plist: NSAllowsArbitraryLoads disables ATS for the whole internet; "
+             "NSAllowsLocalNetworking is what the LAN bridge needs")
+    if not plist.get("NSLocalNetworkUsageDescription"):
+        fail("Info.plist: NSLocalNetworkUsageDescription missing — iOS blocks local "
+             "network access without it, whatever ATS says")
+
     permitted = plist.get("BGTaskSchedulerPermittedIdentifiers") or []
     if not permitted:
         fail("Info.plist: BGTaskSchedulerPermittedIdentifiers is empty — iOS refuses "

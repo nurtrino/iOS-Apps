@@ -127,9 +127,33 @@ So Dispatch supports the bridges people actually run:
 - **RSSHub** — reads `<host>/twitter/user/<handle>`
 - **Custom** — any URL containing `{handle}` that returns RSS or Atom
 
-Set one up in **Settings › X bridge**. Public instances get rate limited into
-uselessness quickly, so a self-hosted instance is the arrangement that keeps
-working.
+Set one up in **More › Settings › X bridge**, then tap **Test the bridge** —
+it resolves the template against a real handle, fetches it, and reports the item
+count or the exact failure. The "Resolves to" line shows the precise URL it will
+request.
+
+Public instances get rate limited into uselessness quickly, so a self-hosted one
+is the arrangement that keeps working. RSSHub in Docker is the usual answer:
+
+```sh
+docker run -d --name rsshub -p 1200:1200 \
+  -e TWITTER_AUTH_TOKEN=<the auth_token cookie from a logged-in X session> \
+  diygod/rsshub
+```
+
+Then set the kind to RSSHub and the instance to `192.168.x.x:1200`. A host on
+your own network defaults to `http` and is permitted to use it —
+`NSAllowsLocalNetworking` in the Info.plist relaxes App Transport Security for
+private addresses only, leaving it fully in force for the public internet.
+Anything else defaults to `https`.
+
+Both X routes need a logged-in session token, because X blocks the anonymous
+paths these bridges originally used. Use a throwaway account: an automated
+reader on a token is the sort of thing X suspends accounts over.
+
+If a service mints one opaque feed URL per account rather than a templated one,
+it cannot be a bridge — there is no `{handle}` to substitute. Paste those URLs
+into each X source's **Backup feeds** list instead, in More › Sources.
 
 **With no bridge configured the app still works.** Each X source falls back to a
 real RSS feed and says so with a one-line note under the section header:

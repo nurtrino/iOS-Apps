@@ -36,10 +36,27 @@
 		<string>fetch</string>
 	</array>
 
-	<!-- Every source here is plain HTTPS, so the default ATS policy stands. The
-	     one thing worth allowing is local networking: a self-hosted RSSHub or
-	     Nitter bridge on the same LAN is a supported way to read the X feeds,
-	     and ATS blocks it outright without this. -->
+	<!-- Every public source is plain HTTPS, so the default ATS policy stands for
+	     the whole internet. The one carve-out is the local network: a
+	     self-hosted RSSHub or Nitter bridge on the LAN is the arrangement that
+	     actually keeps working, and those are almost always served over plain
+	     http on a port.
+
+	     `NSAllowsLocalNetworking` is the key that permits it. It relaxes
+	     cleartext *only* for link-local and private addresses — .local names
+	     and the RFC 1918 ranges — and leaves ATS fully in force for every
+	     public host, which `NSAllowsArbitraryLoads` would not.
+
+	     `NSLocalNetworkUsageDescription` is a different thing and does not
+	     grant this: it is the privacy prompt for Bonjour and multicast
+	     discovery. It is here because iOS 14+ requires it before an app may
+	     contact local addresses at all. Both keys are needed; either one alone
+	     leaves a LAN bridge failing. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Dispatch connects to an RSS bridge on your local network if you configure one for the X feeds. It contacts nothing else on your network.</string>
 

@@ -24,11 +24,17 @@ struct XBridgeScreen: View {
             }
 
             if settings.xBridge.kind == .nitter || settings.xBridge.kind == .rsshub {
-                Section("Instance") {
+                Section {
                     TextField(settings.xBridge.kind.hostPlaceholder, text: $settings.xBridge.host)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
+                } header: {
+                    Text("Instance")
+                } footer: {
+                    Text("A host on your own network — 192.168.x.x, 10.x.x.x or a .local name — "
+                         + "defaults to http and is allowed to use it. Anything else defaults to "
+                         + "https. Type the scheme yourself to override either.")
                 }
             }
 
