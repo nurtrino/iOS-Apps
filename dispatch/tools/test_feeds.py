@@ -30,6 +30,7 @@ from feed_reference import (  # noqa: E402
     steam_html, parse_date, replacement, last_attribute_value,
     load_lexicon, classify, normalise, is_local_host, normalized_host,
     links_in, outbound_link,
+    expand_placeholders, strip_remaining_tags, is_predominantly_latin,
 )
 
 FAILURES = []
@@ -742,6 +743,59 @@ check("an article tag is not mistaken for an anchor",
 check("an unterminated anchor still yields its href",
       links_in('<a href="https://example.com/x">no closing tag')[0][0],
       "https://example.com/x")
+
+
+# --- Steam announcement formatting ------------------------------------------
+#
+# Steam renders these placeholders and tags itself when it serves the store
+# page; through the API they arrive raw. Left alone they are what "the
+# formatting is broken" looks like — curly-braced paths where images should be
+# and literal square brackets through the prose.
+
+check("the clan image placeholder expands to the CDN",
+      expand_placeholders("[img]{STEAM_CLAN_IMAGE}/12345/abc.png[/img]"),
+      "[img]https://clan.cloudflare.steamstatic.com/images/12345/abc.png[/img]")
+
+check("the localised placeholder expands too",
+      expand_placeholders("{STEAM_CLAN_LOC_IMAGE}/x.png"),
+      "https://clan.cloudflare.steamstatic.com/images/x.png")
+
+check("an unmodelled tag with an attribute is removed",
+      strip_remaining_tags("Watch [previewyoutube=abc123;full][/previewyoutube] now"),
+      "Watch  now")
+
+check("a quote with an author attribute is removed",
+      strip_remaining_tags("[quote=devteam]We fixed it[/quote]"), "We fixed it")
+
+# Patch notes are full of bracketed prose, and eating it would be worse than
+# leaving a stray tag.
+check("bracketed prose survives", strip_remaining_tags("[PC] Fixed a crash"), "[PC] Fixed a crash")
+check("a capitalised label survives", strip_remaining_tags("[Fixed] the thing"), "[Fixed] the thing")
+check("a bracketed number survives", strip_remaining_tags("issue [1234]"), "issue [1234]")
+check("an unclosed bracket survives", strip_remaining_tags("a [ b"), "a [ b")
+
+
+# --- Which alphabet an announcement is in -----------------------------------
+#
+# Steam's news API has no language parameter and no language field, so the text
+# is the only thing to filter on. This does not identify a language and does not
+# try to — it separates scripts a reader of English cannot read at all.
+
+check("English is Latin", is_predominantly_latin("Update 1.4 is now live"), True)
+check("accented Latin is Latin", is_predominantly_latin("Mise à jour disponible dès aujourd'hui"), True)
+check("Chinese is not", is_predominantly_latin("更新公告：新版本现已推出，欢迎体验"), False)
+check("Russian is not", is_predominantly_latin("Обновление уже доступно всем игрокам"), False)
+check("Japanese is not", is_predominantly_latin("アップデートのお知らせ、新バージョン公開"), False)
+check("Korean is not", is_predominantly_latin("업데이트 안내 새로운 버전이 출시되었습니다"), False)
+
+# A version string has no letters to judge, and dropping it would be worse than
+# showing it.
+check("a version-only title is kept", is_predominantly_latin("v1.4.2"), True)
+check("an empty title is kept", is_predominantly_latin(""), True)
+
+# Bilingual announcements are common and stay, since half of it is readable.
+check("a mixed title leaning Latin is kept",
+      is_predominantly_latin("Update 1.4 is now live 更新"), True)
 
 
 # --- Report -----------------------------------------------------------------

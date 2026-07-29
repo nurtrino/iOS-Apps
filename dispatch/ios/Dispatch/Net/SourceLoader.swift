@@ -15,6 +15,8 @@ struct SteamContext {
     var games: [SteamGame]
     var itemsPerGame: Int
     var maxGames: Int
+    /// Drop announcements written in a script the reader cannot read.
+    var latinScriptOnly: Bool = true
 
     static let empty = SteamContext(games: [], itemsPerGame: 3, maxGames: 12)
 }
@@ -206,7 +208,16 @@ enum SourceLoader {
                                                                       count: steam.itemsPerGame) else {
                         return []
                     }
-                    return items.map { $0.article(sourceID: source.id, game: game) }
+                    return items
+                        // Steam has no language parameter and no language
+                        // field, so a Chinese studio's patch notes arrive in
+                        // the same list as an English one's. The title is what
+                        // gets scanned in a feed, so the title decides.
+                        .filter { item in
+                            guard steam.latinScriptOnly else { return true }
+                            return TextScript.isPredominantlyLatin(item.title)
+                        }
+                        .map { $0.article(sourceID: source.id, game: game) }
                 }
             }
             var all: [Article] = []

@@ -14,6 +14,7 @@ struct LiveRail: View {
 
     @EnvironmentObject private var live: LiveStore
 
+    @Binding var playing: LivePlayback?
     @Binding var webLink: WebLink?
 
     /// Only channels confirmed to be broadcasting.
@@ -52,6 +53,7 @@ struct LiveRail: View {
                         ForEach(visibleChannels) { channel in
                             LiveCard(channel: channel,
                                      state: live.state(for: channel),
+                                     playing: $playing,
                                      webLink: $webLink)
                         }
                     }
@@ -64,10 +66,18 @@ struct LiveRail: View {
     }
 }
 
+/// What the player sheet is showing.
+struct LivePlayback: Identifiable {
+    let channel: LiveChannel
+    let state: LiveState
+    var id: String { channel.id }
+}
+
 struct LiveCard: View {
 
     let channel: LiveChannel
     let state: LiveState?
+    @Binding var playing: LivePlayback?
     @Binding var webLink: WebLink?
 
     private var isLive: Bool { state?.isLive == true }
@@ -175,23 +185,16 @@ struct LiveCard: View {
         return "Off air"
     }
 
-    /// Opens the stream, in Safari.
+    /// Opens the embedded player, which falls back to Safari on its own.
     ///
-    /// This used to be a `WKWebView` around YouTube's embed, and it did not
-    /// work — not because of how it was wired up, but because **a channel can
-    /// switch embedding off**, and YouTube enforces that server-side with
-    /// "Playback on other websites has been disabled by the video owner". News
-    /// and commentary channels that live on ad revenue routinely do exactly
-    /// that, which is precisely the set of channels on this screen. No amount
-    /// of iframe plumbing reaches it.
-    ///
-    /// `SFSafariViewController` is a real browser, so it plays whatever the
-    /// site will play, embeddable or not — and it is still a sheet inside the
-    /// app rather than a trip out to another one.
+    /// The embed cannot always play: a channel may switch embedding off, and
+    /// YouTube enforces that server-side. `LivePlayerSheet` listens for the
+    /// player's `onError` and offers Safari when it hears one, so the good case
+    /// stays in the app and the bad case is one tap rather than a black
+    /// rectangle.
     private func activate() {
-        if isLive, let videoID = state?.videoID,
-           let watch = YouTubeLive.watchURL(videoID: videoID) {
-            webLink = WebLink(url: watch)
+        if isLive, let state, channel.platform == .youtube, state.videoID != nil {
+            playing = LivePlayback(channel: channel, state: state)
             return
         }
         if let url = channel.externalURL {

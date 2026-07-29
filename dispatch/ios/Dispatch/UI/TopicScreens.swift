@@ -16,28 +16,51 @@ struct WarScreen: View {
     @EnvironmentObject private var steamLibrary: SteamLibraryStore
 
     @State private var webLink: WebLink?
+    @State private var playing: LivePlayback?
+    @State private var video: Article?
+    /// Pushes are driven from a path rather than from links inside rails and
+    /// section headers — see `WireSection` for why that was breaking the back
+    /// button.
+    @State private var path = NavigationPath()
 
     @Environment(\.scenePhase) private var scenePhase
 
     /// The frontline Telegram channel. High enough volume that merging it into
-    /// the main list buries everything else, so it lives in its own block.
+    /// the main list buries everything else, so it lives in its own section.
     static let wireSourceID = "wfwitness"
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             TopicFeedList(topic: .war, webLink: $webLink, excluding: [WarScreen.wireSourceID]) {
-                VStack(alignment: .leading, spacing: 0) {
-                    LiveRail(webLink: $webLink)
-                    WireBlock(sourceID: WarScreen.wireSourceID, limit: 5)
-                    TopicHeader(topic: .war, subtitle: subtitle)
-                }
+                LiveRail(playing: $playing, webLink: $webLink)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+
+                BriefSection(topic: .war) { path.append($0) }
+
+                WireSection(
+                    sourceID: WarScreen.wireSourceID,
+                    limit: 6,
+                    onOpen: { path.append($0) },
+                    onOpenAll: { path.append(SourceRef(id: WarScreen.wireSourceID)) },
+                    onPlay: { video = $0 }
+                )
+
+                TopicHeader(topic: .war, subtitle: subtitle)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
             }
             .navigationTitle("War")
             .topicToolbar(.war)
             .navigationDestination(for: Article.self) { ArticleScreen(article: $0) }
+            .navigationDestination(for: SourceRef.self) { SourceFeedScreen(sourceID: $0.id) }
         }
         .tint(TopicTheme.accent(.war))
         .sheet(item: $webLink) { SafariSheet(url: $0.url).ignoresSafeArea() }
+        .sheet(item: $playing) { LivePlayerSheet(channel: $0.channel, state: $0.state) }
+        .sheet(item: $video) { VideoSheet(article: $0) }
         .task {
             await live.refresh()
         }
@@ -63,11 +86,17 @@ struct PoliticsScreen: View {
     @EnvironmentObject private var feed: FeedStore
 
     @State private var webLink: WebLink?
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             TopicFeedList(topic: .politics, webLink: $webLink) {
+                BriefSection(topic: .politics) { path.append($0) }
+
                 TopicHeader(topic: .politics, subtitle: subtitle)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
             }
             .navigationTitle("Politics")
             .topicToolbar(.politics)
@@ -92,16 +121,26 @@ struct EconomicsScreen: View {
     @EnvironmentObject private var feed: FeedStore
 
     @State private var webLink: WebLink?
+    @State private var path = NavigationPath()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             TopicFeedList(topic: .economics, webLink: $webLink) {
                 VStack(alignment: .leading, spacing: 0) {
                     MarketStrip()
                     CalendarStrip()
-                    TopicHeader(topic: .economics, subtitle: subtitle)
                 }
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+
+                BriefSection(topic: .economics) { path.append($0) }
+
+                TopicHeader(topic: .economics, subtitle: subtitle)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
             }
             .navigationTitle("Markets")
             .topicToolbar(.economics)
@@ -130,20 +169,27 @@ struct GamingScreen: View {
     @EnvironmentObject private var steamLibrary: SteamLibraryStore
 
     @State private var webLink: WebLink?
+    @State private var path = NavigationPath()
 
     static let steamSourceID = "steam"
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             TopicFeedList(topic: .gaming, webLink: $webLink, excluding: [GamingScreen.steamSourceID]) {
-                VStack(alignment: .leading, spacing: 0) {
-                    SteamRail()
-                    TopicHeader(topic: .gaming, subtitle: subtitle)
-                }
+                SteamRail(onOpen: { path.append($0) },
+                          onOpenAll: { path.append(SourceRef(id: GamingScreen.steamSourceID)) })
+
+                BriefSection(topic: .gaming) { path.append($0) }
+
+                TopicHeader(topic: .gaming, subtitle: subtitle)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
             }
             .navigationTitle("Gaming")
             .topicToolbar(.gaming)
             .navigationDestination(for: Article.self) { ArticleScreen(article: $0) }
+            .navigationDestination(for: SourceRef.self) { SourceFeedScreen(sourceID: $0.id) }
         }
         .tint(TopicTheme.accent(.gaming))
         .sheet(item: $webLink) { SafariSheet(url: $0.url).ignoresSafeArea() }

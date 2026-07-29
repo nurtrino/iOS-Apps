@@ -1056,3 +1056,77 @@ def outbound_link(html, excluding_host):
         if any(hint in lowered for hint in LABEL_HINTS):
             return href
     return candidates[0][0] if candidates else None
+
+
+# --- Steam placeholders, leftover tags and script detection -----------------
+
+STEAM_PLACEHOLDERS = ("{STEAM_CLAN_IMAGE}", "{STEAM_CLAN_LOC_IMAGE}")
+STEAM_CDN = "https://clan.cloudflare.steamstatic.com/images"
+
+
+def expand_placeholders(text):
+    """Mirrors SteamText.expandPlaceholders."""
+    out = text
+    for placeholder in STEAM_PLACEHOLDERS:
+        out = out.replace(placeholder, STEAM_CDN)
+    return out
+
+
+def _is_tag_like(body):
+    """Mirrors SteamText.isTagLike."""
+    name = body[1:] if body.startswith("/") else body
+    if not name:
+        return False
+    head = ""
+    for char in name:
+        if char in ("=", " "):
+            break
+        head += char
+    if not head or len(head) > 20:
+        return False
+    return all(c.isalpha() and c.islower() for c in head)
+
+
+def strip_remaining_tags(text):
+    """Mirrors SteamText.stripRemainingTags."""
+    out = []
+    remainder = text
+    while True:
+        open_at = remainder.find("[")
+        if open_at < 0:
+            break
+        close = remainder.find("]", open_at)
+        if close < 0:
+            break
+        body = remainder[open_at + 1:close]
+        if _is_tag_like(body):
+            out.append(remainder[:open_at])
+        else:
+            out.append(remainder[:close + 1])
+        remainder = remainder[close + 1:]
+    out.append(remainder)
+    return "".join(out)
+
+
+NON_LATIN_RANGES = (
+    (0x0400, 0x052F), (0x0590, 0x05FF), (0x0600, 0x06FF), (0x0750, 0x077F),
+    (0x0E00, 0x0E7F), (0x1100, 0x11FF), (0xAC00, 0xD7AF), (0x3040, 0x30FF),
+    (0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF),
+)
+
+
+def is_predominantly_latin(text, threshold=0.5):
+    """Mirrors TextScript.isPredominantlyLatin."""
+    latin = other = 0
+    for char in text:
+        if not char.isalpha():
+            continue
+        code = ord(char)
+        if any(low <= code <= high for low, high in NON_LATIN_RANGES):
+            other += 1
+        else:
+            latin += 1
+    total = latin + other
+    if total < 8:
+        return True
+    return latin / total >= threshold

@@ -31,6 +31,12 @@ struct Article: Identifiable, Hashable, Codable {
     /// derived before any rewrite, so identity stays put.
     var link: URL?
     let imageURL: URL?
+    /// A playable file, when the source carries one directly.
+    ///
+    /// Telegram serves video posts as a plain MP4 on its CDN, so those can be
+    /// played rather than bounced out to the web page — which for a video post
+    /// is the whole content.
+    let videoURL: URL?
     let author: String?
     let published: Date?
 
@@ -46,6 +52,7 @@ struct Article: Identifiable, Hashable, Codable {
          bodyHTML: String? = nil,
          link: URL? = nil,
          imageURL: URL? = nil,
+         videoURL: URL? = nil,
          author: String? = nil,
          published: Date? = nil,
          context: String? = nil) {
@@ -56,6 +63,7 @@ struct Article: Identifiable, Hashable, Codable {
         self.bodyHTML = bodyHTML
         self.link = link
         self.imageURL = imageURL
+        self.videoURL = videoURL
         self.author = author
         self.published = published
         self.context = context

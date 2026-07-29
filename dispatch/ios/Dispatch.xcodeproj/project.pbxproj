@@ -43,11 +43,13 @@
 		AD6B19744C0850CD4EABAF76 /* YouTubeLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9348074D00721471F76C0DC7 /* YouTubeLive.swift */; };
 		230F2C480606A8A1E6352E1A /* ArticleRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CD926394826B241F5FE0317 /* ArticleRow.swift */; };
 		3F80A0438311DAD53A8DE500 /* ArticleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3465DD33745286024B19A4C /* ArticleScreen.swift */; };
+		344BC7C32829183B0BAA94C6 /* BriefSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D362DDC6F0351E2171F7AE7 /* BriefSection.swift */; };
 		013506D0BFDCCBF577A9A164 /* CalendarStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9D3DACBE2096CA8DC6AD2D8 /* CalendarStrip.swift */; };
 		DD09502277299121CF669D22 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49D89ED03E47731FDCF52E8C /* Components.swift */; };
 		E67EE9DB901E4E3A39DDCB79 /* LiveChannelsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 267792AE7691941A7A71A4BE /* LiveChannelsScreen.swift */; };
 		6B98637B3C47EEF623757AD0 /* LiveRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17598EA4D49AA37CC24CBFD7 /* LiveRail.swift */; };
 		BDAE248871C8BFF174A417B7 /* MarketCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017861F3141FB4C84549C7A0 /* MarketCard.swift */; };
+		C83F09E33CB9E722634E90B3 /* PlayerSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B2BAD54464428399A9DA463 /* PlayerSheets.swift */; };
 		8B112E87B79E01E1DFD5FF58 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E184F84906A6E5AAD2763BD /* RootView.swift */; };
 		44675F5965825F5F9B9B116C /* SafariSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAA421E3485606FCB78CBD70 /* SafariSheet.swift */; };
 		BEBC0250F571C48C4F8A4C32 /* SavedScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B0E3DB0426F78163AB9F2E8 /* SavedScreen.swift */; };
@@ -101,11 +103,13 @@
 		9348074D00721471F76C0DC7 /* YouTubeLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeLive.swift; sourceTree = "<group>"; };
 		8CD926394826B241F5FE0317 /* ArticleRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleRow.swift; sourceTree = "<group>"; };
 		D3465DD33745286024B19A4C /* ArticleScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleScreen.swift; sourceTree = "<group>"; };
+		0D362DDC6F0351E2171F7AE7 /* BriefSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefSection.swift; sourceTree = "<group>"; };
 		C9D3DACBE2096CA8DC6AD2D8 /* CalendarStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarStrip.swift; sourceTree = "<group>"; };
 		49D89ED03E47731FDCF52E8C /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		267792AE7691941A7A71A4BE /* LiveChannelsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveChannelsScreen.swift; sourceTree = "<group>"; };
 		17598EA4D49AA37CC24CBFD7 /* LiveRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveRail.swift; sourceTree = "<group>"; };
 		017861F3141FB4C84549C7A0 /* MarketCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketCard.swift; sourceTree = "<group>"; };
+		4B2BAD54464428399A9DA463 /* PlayerSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerSheets.swift; sourceTree = "<group>"; };
 		8E184F84906A6E5AAD2763BD /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		CAA421E3485606FCB78CBD70 /* SafariSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariSheet.swift; sourceTree = "<group>"; };
 		3B0E3DB0426F78163AB9F2E8 /* SavedScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedScreen.swift; sourceTree = "<group>"; };
@@ -197,11 +201,13 @@
 			children = (
 				8CD926394826B241F5FE0317 /* ArticleRow.swift */,
 				D3465DD33745286024B19A4C /* ArticleScreen.swift */,
+				0D362DDC6F0351E2171F7AE7 /* BriefSection.swift */,
 				C9D3DACBE2096CA8DC6AD2D8 /* CalendarStrip.swift */,
 				49D89ED03E47731FDCF52E8C /* Components.swift */,
 				267792AE7691941A7A71A4BE /* LiveChannelsScreen.swift */,
 				17598EA4D49AA37CC24CBFD7 /* LiveRail.swift */,
 				017861F3141FB4C84549C7A0 /* MarketCard.swift */,
+				4B2BAD54464428399A9DA463 /* PlayerSheets.swift */,
 				8E184F84906A6E5AAD2763BD /* RootView.swift */,
 				CAA421E3485606FCB78CBD70 /* SafariSheet.swift */,
 				3B0E3DB0426F78163AB9F2E8 /* SavedScreen.swift */,
@@ -353,11 +359,13 @@
 				AD6B19744C0850CD4EABAF76 /* YouTubeLive.swift in Sources */,
 				230F2C480606A8A1E6352E1A /* ArticleRow.swift in Sources */,
 				3F80A0438311DAD53A8DE500 /* ArticleScreen.swift in Sources */,
+				344BC7C32829183B0BAA94C6 /* BriefSection.swift in Sources */,
 				013506D0BFDCCBF577A9A164 /* CalendarStrip.swift in Sources */,
 				DD09502277299121CF669D22 /* Components.swift in Sources */,
 				E67EE9DB901E4E3A39DDCB79 /* LiveChannelsScreen.swift in Sources */,
 				6B98637B3C47EEF623757AD0 /* LiveRail.swift in Sources */,
 				BDAE248871C8BFF174A417B7 /* MarketCard.swift in Sources */,
+				C83F09E33CB9E722634E90B3 /* PlayerSheets.swift in Sources */,
 				8B112E87B79E01E1DFD5FF58 /* RootView.swift in Sources */,
 				44675F5965825F5F9B9B116C /* SafariSheet.swift in Sources */,
 				BEBC0250F571C48C4F8A4C32 /* SavedScreen.swift in Sources */,

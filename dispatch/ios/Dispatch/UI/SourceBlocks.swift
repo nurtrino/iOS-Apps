@@ -92,6 +92,11 @@ struct SourceFeedScreen: View {
     }
 }
 
+/// Identifies a source screen on a navigation path.
+struct SourceRef: Hashable {
+    let id: String
+}
+
 /// Steam news, across the top of the Gaming screen.
 ///
 /// Patch notes for a game you played last night are the reason this section
@@ -102,14 +107,21 @@ struct SourceFeedScreen: View {
 /// own space and the wire runs underneath.
 struct SteamRail: View {
 
+    /// Pushed rather than linked. A horizontal rail of `NavigationLink`s inside
+    /// a single List row confuses SwiftUI's link handling — the row behaves as
+    /// one destination and the back button stops matching what you tapped —
+    /// so the rail reports the tap and the screen owning the path does the push.
+    var onOpen: (Article) -> Void
+    var onOpenAll: () -> Void
+
     @EnvironmentObject private var feed: FeedStore
     @EnvironmentObject private var read: ReadStore
 
-    private var articles: [Article] {
-        Array(feed.articles(for: "steam")
-            .sorted { $0.sortDate > $1.sortDate }
-            .prefix(12))
+    private var all: [Article] {
+        feed.articles(for: "steam").sorted { $0.sortDate > $1.sortDate }
     }
+
+    private var articles: [Article] { Array(all.prefix(12)) }
 
     var body: some View {
         if !articles.isEmpty {
@@ -121,12 +133,11 @@ struct SteamRail: View {
                         .font(.system(size: 12, weight: .heavy))
                         .tracking(0.8)
                     Spacer()
-                    NavigationLink {
-                        SourceFeedScreen(sourceID: "steam")
-                    } label: {
-                        Text("All \(feed.articles(for: "steam").count)")
+                    Button(action: onOpenAll) {
+                        Text("All \(all.count)")
                             .font(.system(size: 12, weight: .semibold))
                     }
+                    .buttonStyle(.plain)
                 }
                 .foregroundStyle(TopicTheme.accent(.gaming))
                 .padding(.horizontal, 16)
@@ -134,7 +145,9 @@ struct SteamRail: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(articles) { article in
-                            NavigationLink(value: article) {
+                            Button {
+                                onOpen(article)
+                            } label: {
                                 SteamCard(article: article, isRead: read.isRead(article))
                             }
                             .buttonStyle(.plain)
@@ -145,6 +158,9 @@ struct SteamRail: View {
                 }
             }
             .padding(.top, 10)
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
         }
     }
 }
@@ -197,13 +213,20 @@ private struct SteamCard: View {
 ///
 /// A frontline Telegram channel posts dozens of times an hour. Merged into the
 /// War feed by timestamp it simply *is* the War feed — every analysis piece
-/// ends up buried under a wall of one-line updates. So it gets a fixed-height
-/// block showing the newest few, with the rest one tap away, and the main list
-/// goes back to being readable.
-struct WireBlock: View {
+/// ends up buried under a wall of one-line updates. So it gets its own section
+/// showing the newest few, with the rest one tap away.
+///
+/// A real `Section` of ordinary rows, not a stack of rows crammed into one.
+/// That was the earlier shape and it broke navigation: SwiftUI treats a List
+/// row as a single destination, so several links inside one row fight over the
+/// back button. One row per post, one tap target each.
+struct WireSection: View {
 
     let sourceID: String
     let limit: Int
+    var onOpen: (Article) -> Void
+    var onOpenAll: () -> Void
+    var onPlay: (Article) -> Void
 
     @EnvironmentObject private var catalog: CatalogStore
     @EnvironmentObject private var feed: FeedStore
@@ -212,16 +235,27 @@ struct WireBlock: View {
     private var source: Source? { catalog.source(id: sourceID) }
     private var all: [Article] { feed.articles(for: sourceID).sorted { $0.sortDate > $1.sortDate } }
     private var newest: [Article] { Array(all.prefix(limit)) }
-
     private var unread: Int { read.unreadCount(in: all) }
 
     var body: some View {
         if let source, !newest.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
+            Section {
+                ForEach(newest) { article in
+                    Button {
+                        // A video post is the video. Opening the caption and
+                        // making someone find a link would be losing the
+                        // content it came for.
+                        if article.videoURL != nil { onPlay(article) } else { onOpen(article) }
+                    } label: {
+                        WirePostRow(article: article, isRead: read.isRead(article))
+                    }
+                    .buttonStyle(.plain)
+                }
+            } header: {
                 HStack(spacing: 6) {
                     Image(systemName: source.kind.systemImage)
                         .font(.system(size: 11, weight: .bold))
-                    Text(source.name.uppercased())
+                    Text(source.name)
                         .font(.system(size: 12, weight: .heavy))
                         .tracking(0.8)
 
@@ -235,33 +269,15 @@ struct WireBlock: View {
 
                     Spacer()
 
-                    NavigationLink {
-                        SourceFeedScreen(sourceID: sourceID)
-                    } label: {
+                    Button(action: onOpenAll) {
                         Text("All \(all.count)")
                             .font(.system(size: 12, weight: .semibold))
                     }
+                    .buttonStyle(.plain)
                 }
                 .foregroundStyle(TopicTheme.accent(source.fixedTopic))
-                .padding(.horizontal, 16)
-
-                VStack(spacing: 0) {
-                    ForEach(newest) { article in
-                        NavigationLink(value: article) {
-                            WirePostRow(article: article, isRead: read.isRead(article))
-                        }
-                        .buttonStyle(.plain)
-
-                        if article.id != newest.last?.id {
-                            Divider().padding(.leading, 12)
-                        }
-                    }
-                }
-                .background(Palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .padding(.horizontal, 16)
+                .textCase(nil)
             }
-            .padding(.top, 10)
         }
     }
 }
@@ -276,32 +292,52 @@ private struct WirePostRow: View {
         // frontline post is a paragraph, not a headline, and putting the age in
         // the same row took a chunk of width off every line of it — two
         // truncated lines where three full ones fit.
-        HStack(alignment: .top, spacing: 9) {
+        HStack(alignment: .top, spacing: 10) {
             Circle()
                 .fill(isRead ? Color.clear : TopicTheme.accent(.war))
                 .frame(width: 5, height: 5)
-                .padding(.top, 6)
+                .padding(.top, 7)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(article.displayTitle)
                     .font(.system(size: 14, weight: isRead ? .regular : .medium))
                     .foregroundStyle(isRead ? .secondary : .primary)
-                    .lineLimit(3)
+                    .lineLimit(4)
                     .multilineTextAlignment(.leading)
-                    // Without this the row collapses the text to one line
-                    // inside a List section header.
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                if let age = article.published?.feedAge {
-                    Text(age)
-                        .font(.system(size: 10).monospacedDigit())
-                        .foregroundStyle(.tertiary)
+                HStack(spacing: 5) {
+                    if article.videoURL != nil {
+                        Label("Video", systemImage: "play.circle.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(TopicTheme.accent(.war))
+                    }
+                    if let age = article.published?.feedAge {
+                        Text(age)
+                            .font(.system(size: 10).monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
+
+            if let thumbnail = article.imageURL {
+                RemoteImage(url: thumbnail)
+                    .frame(width: 54, height: 54)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .opacity(isRead ? 0.55 : 1)
+                    .overlay {
+                        if article.videoURL != nil {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.white)
+                                .shadow(radius: 3)
+                        }
+                    }
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
     }
 }

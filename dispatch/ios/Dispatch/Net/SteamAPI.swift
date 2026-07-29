@@ -201,12 +201,14 @@ enum SteamText {
 
     static func html(from contents: String) -> String {
         // An external item is already HTML; running BBCode rules over it would
-        // do nothing at best and mangle a literal bracket at worst.
+        // do nothing at best and mangle a literal bracket at worst. The image
+        // placeholders still need expanding either way — Steam substitutes
+        // those server-side when it renders, not when it serves the API.
         if contents.contains("<p>") || contents.contains("<br") || contents.contains("<div") {
-            return contents
+            return expandPlaceholders(in: contents)
         }
 
-        var text = contents
+        var text = expandPlaceholders(in: contents)
 
         // `[url=x]label[/url]` and `[img]src[/img]` carry a payload in the tag
         // itself, so they are rewritten before the simple pairs.
@@ -221,12 +223,21 @@ enum SteamText {
             ("h1", "<h3>", "</h3>"),
             ("h2", "<h3>", "</h3>"),
             ("h3", "<h3>", "</h3>"),
+            ("h4", "<h3>", "</h3>"),
+            ("h5", "<h3>", "</h3>"),
+            ("h6", "<h3>", "</h3>"),
             ("list", "<ul>", "</ul>"),
             ("olist", "<ol>", "</ol>"),
             ("quote", "<blockquote>", "</blockquote>"),
             ("code", "<pre>", "</pre>"),
+            ("table", "<table>", "</table>"),
+            ("tr", "<tr>", "</tr>"),
+            ("th", "<th>", "</th>"),
+            ("td", "<td>", "</td>"),
             ("noparse", "", ""),
             ("spoiler", "", ""),
+            ("expand", "", ""),
+            ("carousel", "", ""),
         ]
         for (tag, open, close) in pairs {
             text = text.replacingOccurrences(of: "[\(tag)]", with: open, options: .caseInsensitive)
@@ -236,10 +247,71 @@ enum SteamText {
         text = text.replacingOccurrences(of: "[*]", with: "<li>")
         text = text.replacingOccurrences(of: "[hr]", with: "<hr>", options: .caseInsensitive)
         text = text.replacingOccurrences(of: "[/hr]", with: "", options: .caseInsensitive)
+
+        // Anything still in brackets is a tag this does not model —
+        // `[quote=author]`, `[previewyoutube=id;full]`, `[expand type=details]`
+        // and whatever Steam adds next. Leaving them turns the reader into a
+        // wall of literal markup, which is what "the formatting is broken"
+        // looks like.
+        text = stripRemainingTags(in: text)
+
         // Newlines are significant in BBCode and invisible in HTML.
         text = text.replacingOccurrences(of: "\r\n", with: "\n")
         text = text.replacingOccurrences(of: "\n", with: "<br>")
         return text
+    }
+
+    /// Steam's own image placeholders.
+    ///
+    /// Announcement bodies reference uploaded images as `{STEAM_CLAN_IMAGE}/…`
+    /// and Steam substitutes the CDN host when *it* renders the page. Through
+    /// the API the placeholder comes out raw, so every image is a broken link
+    /// with a curly-braced path printed next to it.
+    static func expandPlaceholders(in text: String) -> String {
+        var out = text
+        for placeholder in ["{STEAM_CLAN_IMAGE}", "{STEAM_CLAN_LOC_IMAGE}"] {
+            out = out.replacingOccurrences(
+                of: placeholder,
+                with: "https://clan.cloudflare.steamstatic.com/images")
+        }
+        return out
+    }
+
+    /// Removes leftover BBCode tags, and only those.
+    ///
+    /// Deliberately narrow: an opening bracket, an optional slash, a run of
+    /// lowercase letters, an optional `=value`, a closing bracket. Prose in a
+    /// patch note says "[Fixed]" and "[PC]" often enough that a greedy
+    /// `\[.*?\]` would eat real text.
+    static func stripRemainingTags(in text: String) -> String {
+        var out = ""
+        var remainder = Substring(text)
+
+        while let open = remainder.firstIndex(of: "[") {
+            guard let close = remainder[open...].firstIndex(of: "]") else { break }
+            let body = remainder[remainder.index(after: open)..<close]
+
+            if isTagLike(body) {
+                out += remainder[remainder.startIndex..<open]
+            } else {
+                out += remainder[remainder.startIndex...close]
+            }
+            remainder = remainder[remainder.index(after: close)...]
+        }
+        out += remainder
+        return out
+    }
+
+    private static func isTagLike(_ body: Substring) -> Bool {
+        var name = Substring(body)
+        if name.hasPrefix("/") { name = name.dropFirst() }
+        guard !name.isEmpty else { return false }
+
+        // Up to the `=`, it must be a bare lowercase tag name.
+        let head = name.prefix { $0 != "=" && $0 != " " }
+        guard !head.isEmpty, head.count <= 20,
+              head.allSatisfy({ $0.isLowercase && $0.isLetter }) else { return false }
+        return true
     }
 
     /// `[url=https://x]label[/url]` and the bare `[url]https://x[/url]`.
@@ -317,5 +389,66 @@ extension SteamNewsItem {
             published: date,
             context: game.name
         )
+    }
+}
+
+/// Which alphabet a piece of text is written in.
+///
+/// Steam announcements come in whatever language the developer posts in, and
+/// `GetNewsForApp` has no language parameter and no language field — a Chinese
+/// studio's patch notes arrive in the same list as an English one's. There is
+/// nothing to filter *on* except the text itself.
+///
+/// So: look at the letters. This does not identify a language, and does not try
+/// to — telling Spanish from English needs a model and would still be wrong on
+/// a one-line title. Telling Cyrillic and CJK and Hangul from Latin needs a
+/// Unicode range check, is exact, and covers the announcements that are
+/// genuinely unreadable rather than merely foreign.
+enum TextScript {
+
+    /// True when the letters are mostly Latin, or when there are too few to
+    /// judge.
+    ///
+    /// Errs towards keeping: a title of "v1.4.2" has no letters at all, and
+    /// dropping it because it failed a script test would be worse than showing
+    /// it.
+    static func isPredominantlyLatin(_ text: String, threshold: Double = 0.5) -> Bool {
+        var latin = 0
+        var other = 0
+
+        for scalar in text.unicodeScalars {
+            guard CharacterSet.letters.contains(scalar) else { continue }
+            if isNonLatinScript(scalar) { other += 1 } else { latin += 1 }
+        }
+
+        let total = latin + other
+        guard total >= 8 else { return true }
+        return Double(latin) / Double(total) >= threshold
+    }
+
+    /// The blocks worth distinguishing. Latin, Greek and the accented ranges
+    /// all count as Latin here, because the point is legibility to a reader of
+    /// English rather than linguistic accuracy.
+    private static func isNonLatinScript(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x0400...0x04FF, 0x0500...0x052F:     // Cyrillic
+            return true
+        case 0x0590...0x05FF:                       // Hebrew
+            return true
+        case 0x0600...0x06FF, 0x0750...0x077F:     // Arabic
+            return true
+        case 0x0E00...0x0E7F:                       // Thai
+            return true
+        case 0x1100...0x11FF, 0xAC00...0xD7AF:     // Hangul
+            return true
+        case 0x3040...0x309F, 0x30A0...0x30FF:     // Kana
+            return true
+        case 0x3400...0x4DBF, 0x4E00...0x9FFF:     // CJK
+            return true
+        case 0xF900...0xFAFF:                       // CJK compatibility
+            return true
+        default:
+            return false
+        }
     }
 }

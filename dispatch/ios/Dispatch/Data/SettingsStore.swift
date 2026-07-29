@@ -88,6 +88,8 @@ final class SettingsStore: ObservableObject {
         static let steamMaxGames = "settings.steamMaxGames"
         static let hasSteamKey = "settings.hasSteamKey"
         static let showSortingEvidence = "settings.showSortingEvidence"
+        static let steamLatinOnly = "settings.steamLatinOnly"
+        static let showBrief = "settings.showBrief"
     }
 
     private let defaults: UserDefaults
@@ -158,6 +160,16 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(steamMaxGames, forKey: Key.steamMaxGames) }
     }
 
+    /// Hide Steam announcements written in a non-Latin script.
+    @Published var steamLatinOnly: Bool {
+        didSet { defaults.set(steamLatinOnly, forKey: Key.steamLatinOnly) }
+    }
+
+    /// The catch-up digest at the top of each topic.
+    @Published var showBrief: Bool {
+        didSet { defaults.set(showBrief, forKey: Key.showBrief) }
+    }
+
     /// Mirrors whether a key is in the Keychain.
     ///
     /// The key itself never comes back out into a published property, but the
@@ -185,6 +197,8 @@ final class SettingsStore: ObservableObject {
         steamMaxGames = defaults.object(forKey: Key.steamMaxGames) as? Int ?? 12
         hasSteamKey = defaults.bool(forKey: Key.hasSteamKey)
         showSortingEvidence = defaults.object(forKey: Key.showSortingEvidence) as? Bool ?? true
+        steamLatinOnly = defaults.object(forKey: Key.steamLatinOnly) as? Bool ?? true
+        showBrief = defaults.object(forKey: Key.showBrief) as? Bool ?? true
 
         if let data = defaults.data(forKey: Key.xBridge),
            let decoded = try? JSONDecoder().decode(XBridge.self, from: data) {
@@ -215,6 +229,7 @@ final class SettingsStore: ObservableObject {
     func steamContext(games: [SteamGame]) -> SteamContext {
         SteamContext(games: games,
                      itemsPerGame: steamItemsPerGame,
-                     maxGames: steamMaxGames)
+                     maxGames: steamMaxGames,
+                     latinScriptOnly: steamLatinOnly)
     }
 }

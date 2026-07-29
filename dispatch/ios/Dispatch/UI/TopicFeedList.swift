@@ -41,12 +41,11 @@ struct TopicFeedList<Header: View>: View {
 
     var body: some View {
         List {
-            Section {
-                header()
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-            }
+            // Emitted straight into the List rather than wrapped in a Section
+            // here. A block like the Telegram wire needs to be a Section of
+            // real rows — several NavigationLinks crammed into one List row is
+            // what broke the back button — so the caller decides the shape.
+            header()
 
             let advisories = feed.advisories(for: sources)
             if !advisories.isEmpty {

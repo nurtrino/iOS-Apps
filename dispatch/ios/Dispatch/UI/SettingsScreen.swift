@@ -88,6 +88,10 @@ struct SettingsScreen: View {
                 Label("Hide read stories", systemImage: "eye.slash")
             }
 
+            Toggle(isOn: $settings.showBrief) {
+                Label("Show the brief", systemImage: "text.line.first.and.arrowtriangle.forward")
+            }
+
             Toggle(isOn: $settings.showSortingEvidence) {
                 Label("Show why a story was filed", systemImage: "arrow.triangle.branch")
             }
@@ -102,11 +106,15 @@ struct SettingsScreen: View {
         } header: {
             Text("Reading")
         } footer: {
-            Text(settings.linkBehavior == .reader
+            Text("The brief is the newest few headlines per topic, one per source before any "
+                 + "source repeats, plus the real numbers where a topic has them. It is a digest "
+                 + "of what is already there, not generated prose — nothing is sent anywhere to "
+                 + "write it.\n\n"
+                 + (settings.linkBehavior == .reader
                  ? "The reader uses the article text the feed itself publishes. Sources that "
                    + "syndicate only a summary show one, with the full page a tap away."
                  : "Headlines open the publisher's page in Safari. The reader is still available "
-                   + "from a long press.")
+                   + "from a long press."))
         }
     }
 

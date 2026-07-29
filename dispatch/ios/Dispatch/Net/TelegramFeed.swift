@@ -85,13 +85,14 @@ enum TelegramFeed {
 
         let text = messageText(in: chunk)
         let image = imageURL(in: chunk)
+        let video = videoURL(in: chunk)
         // The footer stamp is the message's own; anything earlier belongs to a
         // forward header or a reply preview.
         let published = FeedDate.parse(lastAttributeValue("datetime", in: chunk))
 
-        // A post with neither words nor a picture is a service message —
+        // A post with neither words nor media is a service message —
         // "channel photo changed" — and not worth a row.
-        guard !text.isEmpty || image != nil else { return nil }
+        guard !text.isEmpty || image != nil || video != nil else { return nil }
 
         let link = URL(string: "https://t.me/\(postID)")
         let body = text.isEmpty ? "(no caption)" : text
@@ -107,6 +108,7 @@ enum TelegramFeed {
             bodyHTML: nil,
             link: link,
             imageURL: image,
+            videoURL: video,
             author: nil,
             published: published,
             context: "t.me/\(channel)"
@@ -142,6 +144,30 @@ enum TelegramFeed {
             if decoded.hasPrefix("http"), let url = URL(string: decoded) { return url }
 
             remainder = rest[open.upperBound...]
+        }
+        return nil
+    }
+
+    /// The MP4 behind a video post.
+    ///
+    /// Telegram serves these as a plain file on its CDN with no signing and no
+    /// token, which means a video post can actually play rather than bouncing
+    /// out to a web page — and for a video post the video *is* the post, so
+    /// bouncing out was losing the content entirely.
+    ///
+    /// Round video messages use the same tag, so both work.
+    private static func videoURL(in chunk: Substring) -> URL? {
+        var remainder = chunk
+        while let open = remainder.range(of: "<video", options: .caseInsensitive) {
+            guard let close = remainder[open.upperBound...].firstIndex(of: ">") else { return nil }
+            let tag = remainder[open.upperBound..<close]
+
+            if let raw = HTMLText.attributeValue("src", in: tag),
+               raw.hasPrefix("http"),
+               let url = URL(string: raw) {
+                return url
+            }
+            remainder = remainder[remainder.index(after: close)...]
         }
         return nil
     }

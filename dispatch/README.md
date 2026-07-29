@@ -59,10 +59,20 @@ break that badly enough to need handling:
   posting all day — so the news you opened the Gaming tab for was gone within
   an hour of a refresh.
 
-Both are pulled out of their topic's main list into a fixed block at the top:
-Steam as a horizontal rail of game cards, WarFront Witness as the newest five
-with the rest one tap away. The main list underneath goes back to being
-readable.
+Both are pulled out of their topic's main list: Steam as a horizontal rail of
+game cards, WarFront Witness as its own `Section` of the newest six with the
+rest one tap away. The main list underneath goes back to being readable.
+
+Those blocks push through a `NavigationPath` rather than containing
+`NavigationLink`s. SwiftUI treats a List row as a single destination, so several
+links crammed into one row fight over the back button — which is exactly what
+went wrong the first time. One row per post, one tap target each, and rails
+report the tap to the screen that owns the path.
+
+Telegram video posts play in place. Telegram serves them as a plain MP4 on its
+CDN with no signing, so a video post opens an `AVPlayer` rather than a web page
+— for a video post the video *is* the post, and opening the caption was throwing
+the content away.
 
 ## Live streams
 
@@ -85,23 +95,36 @@ says LIVE is worse than one that misses a stream by a minute. A schedule only
 decides *when to start checking*, so a show time being slightly wrong costs a
 late card rather than a wrong one.
 
-Tapping a live card opens the stream in an in-app Safari sheet.
+Tapping a live card plays the stream in the app, through YouTube's official
+embed in a `WKWebView`.
 
-This was a custom `WKWebView` player around YouTube's official embed for two
-attempts, and it never worked. The reason is not fixable in a client: **a
-channel can switch embedding off**, and YouTube enforces that server-side with
-"Playback on other websites has been disabled by the video owner". Channels
-that live on ad revenue routinely do, since an embed on somebody else's page is
-harder to monetise — which is precisely the set of channels on this screen. No
-amount of iframe plumbing reaches it.
+The embed has one failure no client can avoid: **a channel can switch embedding
+off**, and YouTube enforces that server-side with "Playback on other websites
+has been disabled by the video owner". Channels living on ad revenue often do.
+So the player uses the IFrame Player API rather than a bare iframe, purely to
+hear the `onError` callback — codes 101 and 150 both mean "not embeddable" — and
+turns that into an offer of Safari instead of a black rectangle. A watchdog
+covers the case where the API script never loads at all.
 
-`SFSafariViewController` is a real browser, so it plays whatever the site will
-play, embeddable or not. It is still a sheet inside the app, and it is one line
-of code instead of a hundred.
+The good case stays in the app; the bad case is one tap and honest about why.
 
 **X livestreams cannot be detected.** There is no unauthenticated way to ask
 whether an X account is live, so the Mario Nawfal X card (off by default) always
 opens X rather than claiming to know.
+
+## The brief
+
+Each topic opens with a catch-up block: the newest few headlines, numbered, one
+per source before any source repeats, plus a line of real fact where the topic
+has one. On Markets that is the actual index moves and whether a release has
+already landed today, which is the question that section gets asked at nine in
+the morning.
+
+It is a **digest, not a summary**. Writing prose that says what happened needs a
+language model — tens of megabytes on device, or every headline you read sent to
+somebody's API — and neither is worth it for one line of text. Everything in the
+brief is material that is already there, selected and ordered. It can be turned
+off in Settings.
 
 ## Markets data
 
@@ -142,6 +165,17 @@ link.
 **Steam** — `ISteamNews/GetNewsForApp` needs no API key, so game news works with
 nothing configured beyond a list of App IDs. Discovering that list automatically
 needs a Web API key and a public profile; see below.
+
+Two things about Steam announcements need handling. Their bodies are BBCode with
+`{STEAM_CLAN_IMAGE}` placeholders that Steam substitutes when *it* renders the
+page — through the API they arrive raw, so every image is a broken link with a
+curly-braced path beside it. And the API has no language parameter and no
+language field, so a studio posting in Chinese lands in the same list as one
+posting in English. Placeholders are expanded, unmodelled tags are stripped
+(narrowly — patch notes are full of bracketed prose like `[PC]` and `[Fixed]`,
+which stays), and a script check drops announcements whose title is mostly
+non-Latin. That check separates alphabets, not languages: telling Spanish from
+English needs a model, telling Cyrillic from Latin needs a Unicode range.
 
 **X** — see the next section, because it is the one that comes with a caveat.
 

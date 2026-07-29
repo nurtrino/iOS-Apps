@@ -112,11 +112,16 @@ struct SteamScreen: View {
             Stepper(value: $settings.steamItemsPerGame, in: 1...10) {
                 LabeledContent("Items per game", value: "\(settings.steamItemsPerGame)")
             }
+
+            Toggle("Readable scripts only", isOn: $settings.steamLatinOnly)
         } header: {
             Text("Feed")
         } footer: {
             Text("Games are followed most-recently-played first. Each one is a separate request, "
-                 + "so following forty of them makes the Gaming section noticeably slower to refresh.")
+                 + "so following forty of them makes the Gaming section noticeably slower to refresh.\n\n"
+                 + "Steam's news API has no language parameter, so a studio posting in Chinese or "
+                 + "Russian lands in the same list as one posting in English. “Readable scripts "
+                 + "only” drops announcements whose title is mostly non-Latin.")
         }
     }
 
