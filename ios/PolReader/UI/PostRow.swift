@@ -175,20 +175,20 @@ struct PostRow: View {
         }
 
         if !blocks.isEmpty {
-            let body = CommentBody(
+            CommentBody(
                 blocks: blocks,
                 textScale: settings.textScale,
                 spoilersRevealed: spoilersRevealed || settings.revealSpoilersAutomatically
             )
-            // The reveal gesture is attached only when this comment actually
-            // has a hidden spoiler. Attaching it unconditionally consumes every
-            // tap on the text — including the quotelinks and external links,
-            // which are the main thing anyone taps in a comment.
-            if needsSpoilerTap {
-                body.onTapGesture { spoilersRevealed = true }
-            } else {
-                body
-            }
+            // Masked off unless this comment actually has a hidden spoiler.
+            // Attached unconditionally it consumes every tap on the text,
+            // including the quotelinks and external links — which are the main
+            // thing anyone taps in a comment. `.subviews` hands those taps
+            // straight through.
+            .gesture(
+                TapGesture().onEnded { spoilersRevealed = true },
+                including: needsSpoilerTap ? .gesture : .subviews
+            )
         }
 
         if !backlinks.isEmpty {

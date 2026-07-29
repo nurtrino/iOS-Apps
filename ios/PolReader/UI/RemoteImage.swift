@@ -133,30 +133,28 @@ struct PostThumbnail: View {
     private var needsRevealTap: Bool { allowsReveal && (isHidden || isBlurred) }
 
     var body: some View {
-        // The reveal gesture is attached *only* when there is something to
-        // reveal. Attaching it unconditionally and testing the condition inside
-        // the closure looks equivalent and is not: the gesture still consumes
-        // every tap, so the enclosing NavigationLink never fires in the catalog
-        // and `onOpenAttachment` never fires in a thread. With media loading by
-        // default there is usually nothing to reveal, so that swallowed every
-        // tap on every image in the app.
-        if needsRevealTap {
-            decorated
-                .onTapGesture { revealed = true }
-        } else {
-            decorated
-        }
-    }
-
-    /// The image itself, with no gesture of its own — taps belong to whatever
-    /// contains it.
-    private var decorated: some View {
         content
             .clipShape(RoundedRectangle(cornerRadius: isFill ? 10 : 6))
             .overlay(alignment: .bottomLeading) { badge }
             // Keeps the whole frame hit-testable so the parent's tap target
             // covers the image, including any transparent regions.
             .contentShape(Rectangle())
+            // The reveal gesture is *masked off* rather than conditionally
+            // attached. Two things this gets right:
+            //
+            // Attaching it unconditionally and testing the condition inside the
+            // closure — which is what this used to do — still consumes every
+            // tap. With media loading by default there is nothing to reveal, so
+            // the image ate the tap and neither the catalog's NavigationLink
+            // nor the thread's expand action ever fired.
+            //
+            // Branching in `body` instead would fix that but swap the subtree,
+            // which resets `RemoteImage`'s state and makes the picture reload
+            // the moment you reveal it. A gesture mask leaves the tree alone.
+            .gesture(
+                TapGesture().onEnded { revealed = true },
+                including: needsRevealTap ? .all : .subviews
+            )
     }
 
     @ViewBuilder
