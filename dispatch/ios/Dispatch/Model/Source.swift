@@ -263,17 +263,6 @@ enum SourceCatalog {
             style: .article,
             isBuiltIn: true
         ),
-        Source(
-            id: "wfwitness",
-            name: "WarFront Witness",
-            kind: .telegram,
-            endpoint: "wfwitness",
-            topicMode: .fixed,
-            fixedTopic: .war,
-            style: .wire,
-            isBuiltIn: true
-        ),
-
         // --- Gaming ---------------------------------------------------------
 
         Source(
@@ -373,6 +362,12 @@ enum SourceCatalog {
         // kind on the old one, because the stored copy wins the merge and
         // would have kept it an X source.
         "charlieintel",
+        // The frontline Telegram channel. Volume was the whole problem: it
+        // needed its own block to stop it burying the analysis, then its own
+        // rule to keep its threads out of the brief, and it was still the
+        // loudest thing on the screen. Telegram is still a source *kind*, so
+        // it can be added back by hand from More › Sources.
+        "wfwitness",
     ]
 
     static func `default`(withID id: String) -> Source? {

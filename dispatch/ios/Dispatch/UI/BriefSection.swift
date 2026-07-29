@@ -2,42 +2,30 @@ import SwiftUI
 
 /// The catch-up block at the top of a topic.
 ///
-/// Two layers, and they degrade independently. The base is a **digest** built
-/// from material that is already true: the newest few headlines, one line
-/// each, numbered, plus a state line built from real numbers where the topic
-/// has any. On Markets that is the actual index moves and whether a release
-/// has already landed today — the specific question that section gets asked at
-/// nine in the morning.
+/// Two things, and the second one is optional. A **state line** built from real
+/// numbers where the topic has any — on Markets the actual index moves and
+/// whether a release has already landed today, which is the specific question
+/// that section gets asked at nine in the morning. And, when an Anthropic key is
+/// saved and the toggle is on, a **written summary**: a few bullets from the
+/// Claude API saying what just happened.
 ///
-/// On top of it, when an Anthropic key is saved and the toggle is on, sits a
-/// **written summary**: a few bullets from the Claude API saying what just
-/// happened (see `SummaryStore` for what is sent and how rarely). No key, no
-/// network, or a failed request — the digest stands alone, same as before.
+/// What it deliberately does *not* contain is headlines. It used to open with
+/// five of them, numbered, and they were the same stories as the list directly
+/// underneath — the same words twice on one screen, and a wire having a busy
+/// hour could fill all five slots with one thread. The list below is the list.
+/// The brief says what happened; scrolling says what else.
 ///
-/// The two layers read from the same pool but select differently, which is
-/// deliberate:
-///
-/// **The rows are strictly one per source.** Filling spare slots with a
-/// second and third post from whichever wire is loudest is how the War brief
-/// turned into three consecutive Warfront Witness posts from one thread —
-/// three rows saying one thing, directly above the block that already shows
-/// that channel in full. Four distinct sources beats five rows.
-///
-/// **The summary sees more, including the sources shown elsewhere.** A
-/// frontline wire is the best material there is for "what just happened", so it
-/// still feeds the prose even where it is excluded from the rows — capped per
-/// source so a spammed thread cannot crowd out the rest.
+/// The summary reads the newest eight items in the window, capped at three per
+/// source so one busy channel cannot fill the prompt (see `SummaryStore` for
+/// what is sent and how rarely). No key, no network, or a failed request — the
+/// state line stands alone, and where a topic has no numbers either, the block
+/// is simply absent.
 struct BriefSection: View {
 
     let topic: Topic
-    /// Sources with their own block on this screen. Kept out of the numbered
-    /// rows, kept in the summary.
-    var excluding: Set<String> = []
-    var onOpen: (Article) -> Void
 
     @EnvironmentObject private var catalog: CatalogStore
     @EnvironmentObject private var feed: FeedStore
-    @EnvironmentObject private var read: ReadStore
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var markets: MarketStore
     @EnvironmentObject private var live: LiveStore
@@ -54,23 +42,8 @@ struct BriefSection: View {
             .filter { $0.sortDate > cutoff }
     }
 
-    /// The numbered rows: newest first, one per source, nothing repeated, and
-    /// nothing from a source that has its own block on this screen.
-    private var items: [Article] {
-        var seenSources = Set<String>()
-        var picked: [Article] = []
-
-        for article in candidates where !excluding.contains(article.sourceID) {
-            guard seenSources.insert(article.sourceID).inserted else { continue }
-            picked.append(article)
-            if picked.count == 5 { break }
-        }
-        return picked
-    }
-
-    /// What the model reads: the newest of everything in the window, including
-    /// the sources shown in their own block, capped at three per source so one
-    /// busy channel cannot fill the whole prompt.
+    /// What the model reads: the newest of everything in the window, capped at
+    /// three per source so one busy channel cannot fill the whole prompt.
     private var summaryPool: [Article] {
         var perSource: [String: Int] = [:]
         var picked: [Article] = []
@@ -99,31 +72,16 @@ struct BriefSection: View {
         settings.aiSummaries && settings.hasAnthropicKey
     }
 
-    /// True while the first brief for this topic is still being written.
-    ///
-    /// Everything below the summary is held back until it lands: a half-drawn
-    /// brief where the prose is missing but the numbered list is already there
-    /// reads as finished, and then rearranges itself under your thumb.
-    private var isAwaitingFirstBrief: Bool {
-        wantsSummary
-            && summaries.brief(for: topic) == nil
-            && summaries.failure(for: topic) == nil
-    }
-
-    /// Whether the block has anything to say.
-    ///
-    /// Keyed to the summary pool when a summary is wanted, not to the rows: on a
-    /// quiet night the only thing inside the window can easily be the wire that
-    /// the rows exclude, and hiding the whole brief — summary included — because
-    /// its *numbered list* came out empty would be exactly backwards.
+    /// Whether the block has anything to say at all.
     private var hasContent: Bool {
-        wantsSummary ? !summaryPool.isEmpty : !items.isEmpty
+        if wantsSummary && !summaryPool.isEmpty { return true }
+        return stateLine != nil
     }
 
     var body: some View {
         if settings.showBrief, hasContent {
             Section {
-                if wantsSummary {
+                if wantsSummary, !summaryPool.isEmpty {
                     summaryRow
                         .listRowSeparator(.hidden)
                         .task(id: SummaryStore.inputKey(for: summaryPool)) {
@@ -133,28 +91,13 @@ struct BriefSection: View {
                         }
                 }
 
-                if !isAwaitingFirstBrief {
-                    if let state = stateLine {
-                        Text(state)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(TopicTheme.accent(topic))
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .listRowSeparator(.hidden)
-                    }
-
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, article in
-                        Button {
-                            onOpen(article)
-                        } label: {
-                            BriefRow(index: index + 1,
-                                     article: article,
-                                     sourceName: catalog.source(id: article.sourceID)?.name ?? "",
-                                     isRead: read.isRead(article),
-                                     accent: TopicTheme.accent(topic))
-                        }
-                        .buttonStyle(.plain)
-                    }
+                if let state = stateLine {
+                    Text(state)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(TopicTheme.accent(topic))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .listRowSeparator(.hidden)
                 }
             } header: {
                 HStack(spacing: 6) {
@@ -277,48 +220,5 @@ struct BriefSection: View {
         let time = formatter.string(from: event.date)
 
         return event.isPast ? "\(event.title) released \(time)" : "\(event.title) at \(time)"
-    }
-}
-
-private struct BriefRow: View {
-
-    let index: Int
-    let article: Article
-    let sourceName: String
-    let isRead: Bool
-    let accent: Color
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 9) {
-            Text("\(index)")
-                .font(.system(size: 11, weight: .heavy).monospacedDigit())
-                .foregroundStyle(accent)
-                .frame(width: 14, alignment: .trailing)
-                .padding(.top, 2)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(article.displayTitle)
-                    .font(.system(size: 14, weight: isRead ? .regular : .medium))
-                    .foregroundStyle(isRead ? .secondary : .primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                HStack(spacing: 4) {
-                    Text(sourceName)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                    if let age = article.published?.feedAge {
-                        Text("·").foregroundStyle(.tertiary)
-                        Text(age)
-                            .font(.system(size: 10).monospacedDigit())
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-            }
-        }
-        .padding(.vertical, 3)
-        .contentShape(Rectangle())
     }
 }

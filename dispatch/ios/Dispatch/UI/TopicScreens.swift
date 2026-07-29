@@ -4,9 +4,8 @@ import SwiftUI
 ///
 /// The live rail sits above everything because that is the point of the
 /// section: when something is happening, the stream covering it should be the
-/// first thing on the screen, not four scrolls down. Below it the Telegram
-/// wire and the analysis are interleaved by time, which is how a fast-moving
-/// story actually reads — a frontline post at 14:02, a War Zone piece at 14:40.
+/// first thing on the screen, not four scrolls down. Under it the brief, then
+/// the analysis merged by time.
 struct WarScreen: View {
 
     @EnvironmentObject private var live: LiveStore
@@ -17,38 +16,22 @@ struct WarScreen: View {
 
     @State private var webLink: WebLink?
     @State private var playing: LivePlayback?
-    @State private var video: Article?
     /// Pushes are driven from a path rather than from links inside rails and
-    /// section headers — see `WireSection` for why that was breaking the back
-    /// button.
+    /// section headers: SwiftUI treats a List row as one destination, so
+    /// several links inside one row fight over the back button.
     @State private var path = NavigationPath()
 
     @Environment(\.scenePhase) private var scenePhase
 
-    /// The frontline Telegram channel. High enough volume that merging it into
-    /// the main list buries everything else, so it lives in its own section.
-    static let wireSourceID = "wfwitness"
-
     var body: some View {
         NavigationStack(path: $path) {
-            TopicFeedList(topic: .war, webLink: $webLink, excluding: [WarScreen.wireSourceID]) {
+            TopicFeedList(topic: .war, webLink: $webLink) {
                 LiveRail(playing: $playing, webLink: $webLink)
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
 
-                // The wire is excluded from the numbered rows — it has its own
-                // section a few inches below — but still feeds the summary.
-                BriefSection(topic: .war,
-                             excluding: [WarScreen.wireSourceID]) { path.append($0) }
-
-                WireSection(
-                    sourceID: WarScreen.wireSourceID,
-                    limit: 6,
-                    onOpen: { path.append($0) },
-                    onOpenAll: { path.append(SourceRef(id: WarScreen.wireSourceID)) },
-                    onPlay: { video = $0 }
-                )
+                BriefSection(topic: .war)
 
                 TopicHeader(topic: .war, subtitle: subtitle)
                     .listRowInsets(EdgeInsets())
@@ -63,7 +46,6 @@ struct WarScreen: View {
         .tint(TopicTheme.accent(.war))
         .sheet(item: $webLink) { SafariSheet(url: $0.url).ignoresSafeArea() }
         .sheet(item: $playing) { LivePlayerSheet(channel: $0.channel, state: $0.state) }
-        .sheet(item: $video) { VideoSheet(article: $0) }
         .task {
             await live.refresh()
         }
@@ -76,7 +58,6 @@ struct WarScreen: View {
 
     private var subtitle: String {
         let sources = catalog.sources(reaching: .war)
-            .filter { $0.id != WarScreen.wireSourceID }
         let count = feed.articles(for: .war, from: sources).count
         return "\(count) stories from \(sources.count) source\(sources.count == 1 ? "" : "s")"
     }
@@ -94,7 +75,7 @@ struct PoliticsScreen: View {
     var body: some View {
         NavigationStack(path: $path) {
             TopicFeedList(topic: .politics, webLink: $webLink) {
-                BriefSection(topic: .politics) { path.append($0) }
+                BriefSection(topic: .politics)
 
                 TopicHeader(topic: .politics, subtitle: subtitle)
                     .listRowInsets(EdgeInsets())
@@ -138,7 +119,7 @@ struct EconomicsScreen: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
 
-                BriefSection(topic: .economics) { path.append($0) }
+                BriefSection(topic: .economics)
 
                 TopicHeader(topic: .economics, subtitle: subtitle)
                     .listRowInsets(EdgeInsets())
@@ -182,8 +163,7 @@ struct GamingScreen: View {
                 SteamRail(onOpen: { path.append($0) },
                           onOpenAll: { path.append(SourceRef(id: GamingScreen.steamSourceID)) })
 
-                BriefSection(topic: .gaming,
-                             excluding: [GamingScreen.steamSourceID]) { path.append($0) }
+                BriefSection(topic: .gaming)
 
                 TopicHeader(topic: .gaming, subtitle: subtitle)
                     .listRowInsets(EdgeInsets())

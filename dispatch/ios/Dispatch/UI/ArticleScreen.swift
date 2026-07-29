@@ -19,6 +19,7 @@ struct ArticleScreen: View {
     @State private var blocks: [ArticleBlock] = []
     @State private var isParsing = true
     @State private var webLink: WebLink?
+    @State private var video: Article?
 
     private var source: Source? { catalog.source(id: article.sourceID) }
 
@@ -36,6 +37,8 @@ struct ArticleScreen: View {
                         .frame(maxWidth: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
+
+                videoButton
 
                 if isParsing {
                     ProgressView()
@@ -62,6 +65,7 @@ struct ArticleScreen: View {
         .sheet(item: $webLink) { link in
             SafariSheet(url: link.url).ignoresSafeArea()
         }
+        .sheet(item: $video) { VideoSheet(article: $0) }
         .task(id: article.id) {
             if settings.markReadOnOpen { read.markRead(article) }
             await parse()
@@ -96,6 +100,26 @@ struct ArticleScreen: View {
             sortingLine
         }
         .padding(.top, 8)
+    }
+
+    /// Plays a post whose content *is* a video.
+    ///
+    /// Telegram serves video posts as a plain MP4 on its CDN with no signing, so
+    /// where a feed carries one there is no reason to bounce out to a web page
+    /// for it. The dedicated wire block that used to own this has gone; the
+    /// reader is where it belongs anyway, since any source can carry one.
+    @ViewBuilder
+    private var videoButton: some View {
+        if article.videoURL != nil {
+            Button {
+                video = article
+            } label: {
+                Label("Play video", systemImage: "play.circle.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Palette.accent)
+        }
     }
 
     /// Why this story is in the section it is in.

@@ -30,6 +30,7 @@
 		275BE575120B33EA0C441C2F /* DateParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EAAF632C76729287776DE2D /* DateParsing.swift */; };
 		9B845936C6EE15A9AB971428 /* FeedError.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1DDDBC1123BFFC121FC9E78 /* FeedError.swift */; };
 		2225E7994A34AFE26B9C063A /* FeedParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B789E48260DBC08133AB60FC /* FeedParser.swift */; };
+		906E8BEBB9500A528B02D406 /* FredAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F246F9AEBA93CCC542245298 /* FredAPI.swift */; };
 		1DBA84CDC7609847A0782805 /* HTMLDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 579793137372A165F0C5A133 /* HTMLDocument.swift */; };
 		0372AAF8DE04EF79608F38FE /* HTMLText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F42AE2F5E4384C3D680CEF8 /* HTMLText.swift */; };
 		B38D0D4421E32E29D043D42C /* HTTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DDD50BD6945626EF15B7925 /* HTTP.swift */; };
@@ -49,6 +50,7 @@
 		344BC7C32829183B0BAA94C6 /* BriefSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D362DDC6F0351E2171F7AE7 /* BriefSection.swift */; };
 		013506D0BFDCCBF577A9A164 /* CalendarStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9D3DACBE2096CA8DC6AD2D8 /* CalendarStrip.swift */; };
 		DD09502277299121CF669D22 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49D89ED03E47731FDCF52E8C /* Components.swift */; };
+		972899440BEA71075CDB2B0F /* EventDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64463572472CE499F9D4CCE /* EventDetailSheet.swift */; };
 		E67EE9DB901E4E3A39DDCB79 /* LiveChannelsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 267792AE7691941A7A71A4BE /* LiveChannelsScreen.swift */; };
 		6B98637B3C47EEF623757AD0 /* LiveRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17598EA4D49AA37CC24CBFD7 /* LiveRail.swift */; };
 		BDAE248871C8BFF174A417B7 /* MarketCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017861F3141FB4C84549C7A0 /* MarketCard.swift */; };
@@ -94,6 +96,7 @@
 		9EAAF632C76729287776DE2D /* DateParsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateParsing.swift; sourceTree = "<group>"; };
 		E1DDDBC1123BFFC121FC9E78 /* FeedError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedError.swift; sourceTree = "<group>"; };
 		B789E48260DBC08133AB60FC /* FeedParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedParser.swift; sourceTree = "<group>"; };
+		F246F9AEBA93CCC542245298 /* FredAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FredAPI.swift; sourceTree = "<group>"; };
 		579793137372A165F0C5A133 /* HTMLDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLDocument.swift; sourceTree = "<group>"; };
 		0F42AE2F5E4384C3D680CEF8 /* HTMLText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLText.swift; sourceTree = "<group>"; };
 		5DDD50BD6945626EF15B7925 /* HTTP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTP.swift; sourceTree = "<group>"; };
@@ -113,6 +116,7 @@
 		0D362DDC6F0351E2171F7AE7 /* BriefSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefSection.swift; sourceTree = "<group>"; };
 		C9D3DACBE2096CA8DC6AD2D8 /* CalendarStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarStrip.swift; sourceTree = "<group>"; };
 		49D89ED03E47731FDCF52E8C /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		C64463572472CE499F9D4CCE /* EventDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailSheet.swift; sourceTree = "<group>"; };
 		267792AE7691941A7A71A4BE /* LiveChannelsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveChannelsScreen.swift; sourceTree = "<group>"; };
 		17598EA4D49AA37CC24CBFD7 /* LiveRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveRail.swift; sourceTree = "<group>"; };
 		017861F3141FB4C84549C7A0 /* MarketCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketCard.swift; sourceTree = "<group>"; };
@@ -189,6 +193,7 @@
 				9EAAF632C76729287776DE2D /* DateParsing.swift */,
 				E1DDDBC1123BFFC121FC9E78 /* FeedError.swift */,
 				B789E48260DBC08133AB60FC /* FeedParser.swift */,
+				F246F9AEBA93CCC542245298 /* FredAPI.swift */,
 				579793137372A165F0C5A133 /* HTMLDocument.swift */,
 				0F42AE2F5E4384C3D680CEF8 /* HTMLText.swift */,
 				5DDD50BD6945626EF15B7925 /* HTTP.swift */,
@@ -215,6 +220,7 @@
 				0D362DDC6F0351E2171F7AE7 /* BriefSection.swift */,
 				C9D3DACBE2096CA8DC6AD2D8 /* CalendarStrip.swift */,
 				49D89ED03E47731FDCF52E8C /* Components.swift */,
+				C64463572472CE499F9D4CCE /* EventDetailSheet.swift */,
 				267792AE7691941A7A71A4BE /* LiveChannelsScreen.swift */,
 				17598EA4D49AA37CC24CBFD7 /* LiveRail.swift */,
 				017861F3141FB4C84549C7A0 /* MarketCard.swift */,
@@ -358,6 +364,7 @@
 				275BE575120B33EA0C441C2F /* DateParsing.swift in Sources */,
 				9B845936C6EE15A9AB971428 /* FeedError.swift in Sources */,
 				2225E7994A34AFE26B9C063A /* FeedParser.swift in Sources */,
+				906E8BEBB9500A528B02D406 /* FredAPI.swift in Sources */,
 				1DBA84CDC7609847A0782805 /* HTMLDocument.swift in Sources */,
 				0372AAF8DE04EF79608F38FE /* HTMLText.swift in Sources */,
 				B38D0D4421E32E29D043D42C /* HTTP.swift in Sources */,
@@ -377,6 +384,7 @@
 				344BC7C32829183B0BAA94C6 /* BriefSection.swift in Sources */,
 				013506D0BFDCCBF577A9A164 /* CalendarStrip.swift in Sources */,
 				DD09502277299121CF669D22 /* Components.swift in Sources */,
+				972899440BEA71075CDB2B0F /* EventDetailSheet.swift in Sources */,
 				E67EE9DB901E4E3A39DDCB79 /* LiveChannelsScreen.swift in Sources */,
 				6B98637B3C47EEF623757AD0 /* LiveRail.swift in Sources */,
 				BDAE248871C8BFF174A417B7 /* MarketCard.swift in Sources */,

@@ -1235,3 +1235,56 @@ def summary_prompt(topic, headlines):
         suffix = ", %s" % age if age is not None else ""
         lines.append("- [%s%s] %s" % (source, suffix, title))
     return "\n".join(lines)
+
+
+# --- FRED's CSV -------------------------------------------------------------
+#
+# The numbers behind a calendar release come from fredgraph.csv, which needs no
+# key. Its header has been both `DATE` and `observation_date` depending on when
+# you ask, missing observations are a literal ".", and it is served with CRLF —
+# so the parse is skipped by shape rather than by header name, and every one of
+# those cases is a test.
+
+# Imported under an alias: this module already does `from datetime import
+# datetime` above, and a bare `import datetime` here rebinds the name and breaks
+# every date parse in the file.
+from datetime import date as _Date
+
+
+def fred_rows(text):
+    """Mirrors FredCSV.rows. Returns [(date string, value)], file order."""
+    out = []
+    for line in text.replace("\r", "").split("\n"):
+        fields = line.split(",")
+        if len(fields) < 2:
+            continue
+        day = fields[0].strip()
+        raw = fields[1].strip()
+        try:
+            value = float(raw)
+        except ValueError:
+            continue
+        if len(day) != 10 or not day[0].isdigit():
+            continue
+        out.append((day, value))
+    return out
+
+
+def fred_observations(text):
+    """Mirrors FredCSV.observations — newest first."""
+    return sorted(fred_rows(text), key=lambda row: row[0], reverse=True)
+
+
+def nearest_observation(rows, target):
+    """Mirrors FredCSV.nearest. `target` and row dates are yyyy-mm-dd strings."""
+    if not rows:
+        return None
+    goal = _Date.fromisoformat(target)
+    return min(rows, key=lambda row: abs((_Date.fromisoformat(row[0]) - goal).days))
+
+
+def percent_change(new, old):
+    """Mirrors FredCSV.percentChange."""
+    if old == 0:
+        return 0.0
+    return (new / old - 1) * 100

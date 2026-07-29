@@ -349,6 +349,50 @@ def check_catalog_ids():
     if duplicates:
         fail("Source.swift: duplicate catalog ids %s" % sorted(duplicates))
 
+    # A source removed from `defaults` has to be listed in `retired`, or it
+    # lives forever on any device that already stored it — merging only adds.
+    retired_block = re.search(r"retired:\s*Set<String>\s*=\s*\[(.*?)\]", source, re.S)
+    retired = set(re.findall(r'"([^"]+)"', retired_block.group(1))) if retired_block else set()
+    for gone in retired & set(ids):
+        fail("Source.swift: %r is in both defaults and retired" % gone)
+
+    check_source_topics(source, ids)
+
+
+def check_source_topics(source, ids):
+    """Every source has to declare where its stories go.
+
+    This is the wiring behind the sections, and getting it wrong is invisible
+    from inside the app: a source with no prior and no fixed topic quietly files
+    its ambiguous stories into whatever `fixedTopic` happens to default to, and
+    the section just looks thin. So each catalog entry is checked for the pair of
+    fields its `topicMode` actually needs.
+    """
+    # Each Source(...) literal, split on the id line that starts one.
+    blocks = re.split(r'\n\s+Source\(\n', source)
+    for block in blocks[1:]:
+        block = block.split("\n        ),")[0]
+        found = re.search(r'id:\s*"([^"]+)"', block)
+        if not found:
+            continue
+        source_id = found.group(1)
+        if source_id not in ids:
+            continue
+
+        mode = re.search(r"topicMode:\s*\.(\w+)", block)
+        if not mode:
+            fail("Source.swift: %r declares no topicMode" % source_id)
+            continue
+
+        if not re.search(r"fixedTopic:\s*\.(\w+)", block):
+            # `fixedTopic` doubles as the classifier's fallback, so a classified
+            # source needs it just as much as a fixed one.
+            fail("Source.swift: %r has no fixedTopic (it is also the fallback)" % source_id)
+
+        if mode.group(1) == "classified" and not re.search(r"topicPrior:\s*\.(\w+)", block):
+            fail("Source.swift: %r is classified with no topicPrior, so nothing "
+                 "nudges its ambiguous stories" % source_id)
+
 
 def check_fomc_table():
     """The Fed calendar is shipped as a table and has to be extended each year.

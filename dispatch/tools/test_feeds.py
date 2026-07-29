@@ -33,6 +33,7 @@ from feed_reference import (  # noqa: E402
     expand_placeholders, strip_remaining_tags, is_predominantly_latin,
     summary_constants, stable_hash_hex, brief_input_key, summary_prompt,
     summary_bullets, merge_articles,
+    fred_rows, fred_observations, nearest_observation, percent_change,
 )
 
 FAILURES = []
@@ -622,6 +623,118 @@ check("the source prior breaks a genuine tie",
       "economics")
 
 
+# --- The corpus: does the filing actually work on real source output? -------
+#
+# The cases above are unit tests of the tricky parts. This is the different
+# question — whether the whole thing works on the mixed output a general outlet
+# actually publishes — so it is a run of headlines in the shape and register each
+# source really uses, scored the way the app scores them, and counted.
+#
+# It found three real gaps the unit tests could not, all the same failure: no
+# lexicon term matched *at all*, so the story fell back to the source default and
+# a carrier movement filed itself under Markets. Anything that scores zero is
+# invisible, which is why the count below is asserted rather than eyeballed:
+# "carrier strike group", "explosion" and bare "gold" are in the lexicon because
+# this list caught their absence.
+#
+# The two sources are tested differently on purpose. ZeroHedge syndicates full
+# text, so the classifier gets a body. Citizen Free Press posts links: title
+# only, often five words, no body at all — the harder case by far, and the one
+# that produces most of the volume.
+
+# (title, body, expected)
+ZEROHEDGE_CORPUS = [
+    ("Israel Strikes Hezbollah Targets In Southern Lebanon After Rocket Barrage",
+     "The IDF said it hit command centers in response to overnight rocket fire.", "war"),
+    ("Russia Launches Largest Drone Barrage Of The War On Kyiv",
+     "Ukrainian air defense claimed to have downed most of the incoming drones.", "war"),
+    ("US Carrier Strike Group Redeploys To Eastern Mediterranean",
+     "The Pentagon confirmed the movement of the carrier and its escorts.", "war"),
+    ("Houthis Claim Attack On Tanker In Red Sea",
+     "CENTCOM said a missile was intercepted near the vessel.", "war"),
+    ("China Fires Hypersonic Anti-Ship Missile From Smaller Destroyer",
+     "State media released footage of the launch.", "war"),
+    ("Core CPI Comes In Hotter Than Expected As Shelter Costs Reaccelerate",
+     "Consumer price inflation rose more than economists forecast last month.", "economics"),
+    ("Futures Slide As 10-Year Yield Tops 4.5% Ahead Of Powell Testimony",
+     "Treasury yields climbed and equities fell before the Fed chair speaks.", "economics"),
+    ("Gold Price Hits Record High As Dollar Index Slumps",
+     "Bullion rallied for a fourth session as the dollar weakened.", "economics"),
+    ("Nonfarm Payrolls Miss Badly, Unemployment Rate Jumps To 4.6%",
+     "The labor market cooled sharply according to the BLS report.", "economics"),
+    ("Bitcoin Tumbles Below $90,000 In Sudden Selloff",
+     "Crypto markets saw heavy liquidations overnight.", "economics"),
+    ("Fed Holds Rates Steady But Signals Two Cuts This Year",
+     "The FOMC statement left the target range unchanged.", "economics"),
+    ("Supreme Court Agrees To Hear Challenge To Executive Order On Deportations",
+     "The justices will consider the scope of presidential authority.", "politics"),
+    ("Senate Democrats Block Spending Bill As Shutdown Deadline Nears",
+     "Lawmakers remain deadlocked with days to go.", "politics"),
+    ("House Republicans Subpoena Attorney General Over Withheld Documents",
+     "The committee hearing is scheduled for next week.", "politics"),
+    ("Poll Shows Approval Rating Slipping Among Independents",
+     "The survey of registered voters was conducted last week.", "politics"),
+]
+
+# (title, expected) — no body, because these posts have none.
+CFP_CORPUS = [
+    ("Massive explosion reported in Riyadh", "war"),
+    ("Israel strikes Gaza overnight", "war"),
+    ("Russian missile hits apartment block in Kharkiv", "war"),
+    ("US airstrike kills ISIS commander in Syria", "war"),
+    ("Pentagon confirms troop deployment to the region", "war"),
+    ("Drone swarm intercepted over Kyiv", "war"),
+    ("Trump signs executive order on offshore drilling", "politics"),
+    ("Senate confirms new attorney general", "politics"),
+    ("Federal judge blocks deportation flights", "politics"),
+    ("Governor declares state of emergency", "politics"),
+    ("Protests erupt outside the White House", "politics"),
+    ("Democrats introduce gun control bill", "politics"),
+    ("Gold hits record high", "economics"),
+    ("Fed cuts rates by 25 basis points", "economics"),
+    ("Stocks tumble in worst selloff since April", "economics"),
+    ("Mortgage rate falls below 6%", "economics"),
+    ("Bitcoin crashes", "economics"),
+    ("Layoffs announced at major retailer", "economics"),
+]
+
+_MISFILED = []
+for _title, _body, _want in ZEROHEDGE_CORPUS:
+    _got = topic_of(_title, body=_body, prior="economics", fallback="economics")
+    if _got != _want:
+        _MISFILED.append("ZeroHedge %r → %s, wanted %s" % (_title, _got, _want))
+for _title, _want in CFP_CORPUS:
+    _got = topic_of(_title, prior="politics", fallback="politics")
+    if _got != _want:
+        _MISFILED.append("CFP %r → %s, wanted %s" % (_title, _got, _want))
+
+check("every corpus headline files where it belongs", _MISFILED, [])
+check_true("the corpus is big enough to mean something",
+           len(ZEROHEDGE_CORPUS) + len(CFP_CORPUS) >= 30)
+
+# Nothing in the corpus should be reaching its section by fallback. A fallback is
+# the classifier admitting it saw nothing, and on a mixed outlet that means the
+# section is being filled by the source's default rather than by the story.
+_FELL_BACK = [t for t, b, _ in ZEROHEDGE_CORPUS
+              if verdict_of(t, body=b, prior="economics", fallback="economics")[3]]
+_FELL_BACK += [t for t, _ in CFP_CORPUS
+               if verdict_of(t, prior="politics", fallback="politics")[3]]
+check("no corpus headline needs the fallback", _FELL_BACK, [])
+
+# The terms added because of the corpus have to keep earning their place, and
+# the ambiguous readings of them have to stay wrong.
+check("a bare carrier strike group is war",
+      topic_of("Carrier strike group ordered to the eastern Mediterranean"), "war")
+check("an explosion is war on a wire", topic_of("Explosion reported near the airport"), "war")
+check("bare gold is economics",
+      topic_of("Gold jumps to a record", prior="economics"), "economics")
+
+# "Blast" is deliberately *not* in the lexicon: on these outlets it is how a
+# politician criticising another politician is spelled.
+check("a politician blasting another is not a war story",
+      topic_of("Trump blasts Democrats over spending bill", prior="politics"), "politics")
+
+
 # --- Normalisation ----------------------------------------------------------
 
 check("case is ignored", topic_of("AIRSTRIKE ON KYIV"), "war")
@@ -931,6 +1044,54 @@ check("the prompt shape",
       "Headlines, newest first:\n"
       "- [ZeroHedge, 23m] CPI comes in hot at 3.4%\n"
       "- [Citizen Free Press] Futures slide ahead of the open")
+
+
+# --- The numbers behind a calendar release -----------------------------------
+#
+# Tapping a release shows the last published figures, from fredgraph.csv because
+# it needs no key. Everything below is a real property of that file rather than a
+# hypothetical: the header column has been renamed, gaps are a bare ".", and the
+# line endings are CRLF.
+
+_CSV = "observation_date,CPIAUCSL\r\n2026-05-01,320.500\r\n2026-06-01,321.400\r\n2026-07-01,322.100\r\n"
+
+check("the CSV parses", fred_rows(_CSV),
+      [("2026-05-01", 320.5), ("2026-06-01", 321.4), ("2026-07-01", 322.1)])
+
+# The header is skipped by shape — its second field is not a number — so both
+# spellings of the first column work and neither needs to be listed.
+check("the modern header is skipped", len(fred_rows(_CSV)), 3)
+check("the legacy DATE header is skipped",
+      fred_rows("DATE,PAYEMS\n2026-07-01,159000\n"), [("2026-07-01", 159000.0)])
+
+# A missing observation is a ".", which is neither a number nor an error. Parsing
+# it as zero would print a crash in the economy that did not happen.
+check("a missing observation is dropped",
+      fred_rows("DATE,X\n2026-05-01,1.5\n2026-06-01,.\n"), [("2026-05-01", 1.5)])
+check("a blank line is ignored", fred_rows("DATE,X\n\n2026-05-01,1.5\n"), [("2026-05-01", 1.5)])
+check("a truncated line is ignored", fred_rows("DATE,X\n2026-05-01\n"), [])
+check("a malformed date is ignored", fred_rows("DATE,X\nMay 2026,1.5\n"), [])
+
+# Everything downstream reads newest-first.
+check("observations come back newest first",
+      [row[0] for row in fred_observations(_CSV)],
+      ["2026-07-01", "2026-06-01", "2026-05-01"])
+
+# Year-over-year is found by date, not by counting twelve rows back, so that the
+# same code works for a weekly series and a monthly one.
+_ROWS = [("2025-07-01", 312.0), ("2026-06-01", 321.4), ("2026-07-01", 322.1)]
+check("the year-ago observation is found by date",
+      nearest_observation(_ROWS, "2025-07-01"), ("2025-07-01", 312.0))
+check("the nearest date wins when the exact one is missing",
+      nearest_observation([("2025-06-15", 311.0), ("2025-08-20", 313.0)], "2025-07-01"),
+      ("2025-06-15", 311.0))
+check("an empty series has no year-ago point", nearest_observation([], "2025-07-01"), None)
+
+check("year over year is a percentage",
+      round(percent_change(322.1, 312.0), 2), 3.24)
+check("a fall is negative", round(percent_change(98.0, 100.0), 2), -2.0)
+# A zero denominator has to be inert rather than an infinity on the screen.
+check("dividing by zero yields zero", percent_change(5.0, 0.0), 0.0)
 
 
 # --- Report -----------------------------------------------------------------

@@ -26,11 +26,16 @@ enum EventImportance: Int, Codable, Comparable {
 
 struct EconEvent: Identifiable, Hashable {
     let id: String
+    /// Which release this is, so the detail sheet knows which numbers to pull.
+    let kind: EconEventKind
     let title: String
     let agency: String
     let date: Date
     let precision: EventPrecision
     let importance: EventImportance
+
+    /// Whether there are published numbers behind it — see `EconEventKind`.
+    var hasNumbers: Bool { !kind.series.isEmpty }
 
     var isToday: Bool {
         Calendar.autoupdatingCurrent.isDateInToday(date)
@@ -124,6 +129,7 @@ enum EconCalendar {
                let date = at(cursor, hour: 8, minute: 30) {
                 events.append(EconEvent(
                     id: "claims-\(Int(date.timeIntervalSince1970))",
+                    kind: .claims,
                     title: "Initial Jobless Claims",
                     agency: "DOL",
                     date: date,
@@ -145,6 +151,7 @@ enum EconCalendar {
             guard let date = calendar.date(from: components) else { return nil }
             return EconEvent(
                 id: "fomc-\(Int(date.timeIntervalSince1970))",
+                kind: .fomc,
                 title: "FOMC Rate Decision",
                 agency: "Federal Reserve",
                 date: date,
@@ -172,6 +179,7 @@ enum EconCalendar {
                let date = at(payrolls, hour: 8, minute: 30) {
                 events.append(EconEvent(
                     id: "nfp-\(year)-\(month)",
+                    kind: .payrolls,
                     title: "Nonfarm Payrolls",
                     agency: "BLS",
                     date: date,
@@ -184,6 +192,7 @@ enum EconCalendar {
                let date = at(ismDay, hour: 10, minute: 0) {
                 events.append(EconEvent(
                     id: "ism-mfg-\(year)-\(month)",
+                    kind: .ismManufacturing,
                     title: "ISM Manufacturing PMI",
                     agency: "ISM",
                     date: date,
@@ -196,6 +205,7 @@ enum EconCalendar {
                let date = at(ismDay, hour: 10, minute: 0) {
                 events.append(EconEvent(
                     id: "ism-svc-\(year)-\(month)",
+                    kind: .ismServices,
                     title: "ISM Services PMI",
                     agency: "ISM",
                     date: date,
@@ -210,6 +220,7 @@ enum EconCalendar {
                let date = at(businessDayOnOrAfter(day), hour: 8, minute: 30) {
                 events.append(EconEvent(
                     id: "cpi-\(year)-\(month)",
+                    kind: .cpi,
                     title: "Consumer Price Index",
                     agency: "BLS",
                     date: date,
@@ -222,6 +233,7 @@ enum EconCalendar {
                let date = at(businessDayOnOrAfter(day), hour: 8, minute: 30) {
                 events.append(EconEvent(
                     id: "ppi-\(year)-\(month)",
+                    kind: .ppi,
                     title: "Producer Price Index",
                     agency: "BLS",
                     date: date,
@@ -234,6 +246,7 @@ enum EconCalendar {
                let date = at(businessDayOnOrAfter(day), hour: 8, minute: 30) {
                 events.append(EconEvent(
                     id: "retail-\(year)-\(month)",
+                    kind: .retailSales,
                     title: "Retail Sales",
                     agency: "Census",
                     date: date,
@@ -246,6 +259,7 @@ enum EconCalendar {
                let date = at(businessDayOnOrAfter(day), hour: 8, minute: 30) {
                 events.append(EconEvent(
                     id: "pce-\(year)-\(month)",
+                    kind: .pce,
                     title: "PCE Price Index",
                     agency: "BEA",
                     date: date,

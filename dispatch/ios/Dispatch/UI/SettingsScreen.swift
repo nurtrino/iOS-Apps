@@ -126,11 +126,10 @@ struct SettingsScreen: View {
     /// `+` chain with a ternary inside a ViewBuilder is exactly the shape the
     /// compiler gives up type-checking — it failed CI, not hypothetically.
     private var readingFooter: String {
-        let brief = "The brief is the newest headlines per topic, one per source and never the "
-            + "same source twice, plus the real numbers where a topic has them. With AI "
-            + "summaries on it opens with a few bullets written by Claude; otherwise it is "
-            + "purely a digest of what is already there and nothing is sent anywhere to "
-            + "write it."
+        let brief = "The brief is the real numbers where a topic has them — index moves, "
+            + "whether a release has landed today — plus, with AI summaries on, a few bullets "
+            + "written by Claude saying what just happened. It deliberately carries no "
+            + "headlines: those are the list underneath it."
         let reader: String
         if settings.linkBehavior == .reader {
             reader = "The reader uses the article text the feed itself publishes. Sources that "

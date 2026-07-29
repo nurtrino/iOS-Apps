@@ -6,7 +6,7 @@ between, no tracking: the app talks to the publishers directly from the device.
 
 | Tab | What is on it |
 | --- | --- |
-| **War** | Live streams when something is on, the WarFront Witness wire in its own block, then The War Zone and anything else sorted here |
+| **War** | Live streams when something is on, the brief, then The War Zone and anything else sorted here |
 | **Politics** | Everything the classifier files as politics |
 | **Markets** | BTC and S&P 500 with sparklines, the US release calendar, then the economics feed |
 | **Gaming** | Steam news for your library across the top, then the wire — CharlieIntel, Gematsu, VGC, PC Gamer |
@@ -48,21 +48,44 @@ The lexicon lives in `ios/Dispatch/Net/TopicLexicon.swift` and is **parsed
 directly by the tests** rather than copied into them, so the table the tests
 exercise is always the table the app ships.
 
-## Rate mismatch, and why two sources get their own block
+### Is it actually working?
 
-Merging by timestamp assumes everything arrives at a similar rate. Two sources
-break that badly enough to need handling:
+Unit tests on the ambiguous words are not the same question as "does this work on
+what these outlets really publish", so there is a **corpus** in `test_feeds.py`:
+33 headlines in the shape and register ZeroHedge and Citizen Free Press actually
+use, scored exactly as the app scores them, asserted against the section each one
+belongs in. CFP is tested title-only and bodyless, because that is what a link
+post is and it is the harder half of the volume.
 
-- **WarFront Witness** posts dozens of times an hour. Interleaved, it *is* the
-  War feed, and every analysis piece ends up under a wall of one-line updates.
-- **Steam** publishes a handful of patch notes a day, against three X accounts
-  posting all day — so the news you opened the Gaming tab for was gone within
-  an hour of a refresh.
+It started at 30 of 33, and all three failures were the same thing: **no lexicon
+term matched at all**, so the story took the source's default. A carrier
+redeployment filed itself under Markets on a ZeroHedge prior; "Massive explosion
+reported in Riyadh" filed itself under Politics on a CFP one. That failure mode is
+invisible from inside the app — the section just looks thin — so the corpus also
+asserts that **no headline in it reaches its section by fallback**, and sixty
+terms went in to make that true ("carrier strike group", "explosion", bare
+"gold", and the rest). "Blast" is deliberately *not* among them: on these outlets
+it is how "criticises" is spelled.
 
-Both are pulled out of their topic's main list: Steam as a horizontal rail of
-game cards, WarFront Witness as its own `Section` of the newest six with the
-rest one tap away. The main list underneath goes back to being readable, and the
-brief above skips them for the same reason.
+`precheck.py` checks the wiring underneath, too — every source declares a
+`fixedTopic` (which doubles as its fallback), every classified source declares a
+prior, and nothing is in `defaults` and `retired` at once.
+
+## Rate mismatch
+
+Merging by timestamp assumes everything arrives at a similar rate, and **Steam**
+breaks that: a handful of patch notes a day against a gaming wire posting all
+day, so the news you opened the Gaming tab for was gone within an hour of a
+refresh. It gets a horizontal rail of game cards above the list rather than a
+place in it.
+
+The same problem killed a source outright. A frontline Telegram channel posting
+dozens of times an hour needed its own block to stop it burying the analysis,
+then its own rule to keep its threads out of the brief, and it was *still* the
+loudest thing on the screen — so it is retired rather than fought with. Telegram
+remains a source **kind**, so any channel can be added by hand in More › Sources;
+it is just not shipped as a default any more. A video post from one plays in the
+reader, where every source's video now does.
 
 A third rate problem is invisible rather than ugly. **A feed is a window, not an
 archive**: Citizen Free Press publishes dozens of items a day and its RSS holds a
@@ -132,33 +155,26 @@ opens X rather than claiming to know.
 
 ## The brief
 
-Each topic opens with a catch-up block: the newest headlines, numbered, plus a
-line of real fact where the topic has one. On Markets that is the actual index
-moves and whether a release has already landed today, which is the question that
-section gets asked at nine in the morning.
+Each topic opens with a catch-up block, and it contains **no headlines**. It used
+to open with five of them, numbered, and they were the same stories as the list
+directly underneath — the same words twice on one screen, and a wire having a busy
+hour could fill all five slots with one thread. The list below is the list. The
+brief says what happened; scrolling says what else.
 
-The base layer is a **digest** — everything in it is material that is already
-there, selected and ordered, built with no network at all. It can be turned off
-in Settings.
+What is left is two things. A **state line** of real fact where the topic has one
+— on Markets the actual index moves and whether a release has already landed
+today, which is the question that section gets asked at nine in the morning. And,
+by explicit opt-in, a written summary.
 
-**The rows are strictly one per source, and skip sources with their own block.**
-Both rules come from the same failure: filling spare slots with the loudest wire
-turned the War brief into three consecutive Warfront Witness posts from one
-thread, three rows saying one thing, directly above the section that already
-shows that channel in full. Four distinct sources beats five rows.
+**AI summaries.** Paste an Anthropic API key in Settings → AI summaries and the
+brief opens with a few bullets written by Claude (`claude-haiku-4-5`, over raw
+HTTPS to `v1/messages` — there is no Swift SDK) saying what just happened. Haiku
+rather than an Opus deliberately: the job is four lines off headlines that are
+already written, and it runs across four sections all day.
 
-**AI summaries** sit on top, by explicit opt-in. Paste an Anthropic API key in
-Settings → AI summaries and the brief opens with a few bullets written by Claude
-(`claude-haiku-4-5`, over raw HTTPS to `v1/messages` — there is no Swift SDK)
-saying what just happened. Haiku rather than an Opus deliberately: the job is
-four lines off headlines that are already written, and it runs across four
-sections all day.
-
-The summary reads a wider pool than the rows show — the newest eight in the
-window, capped at three per source, *including* the wires excluded from the rows,
-because a frontline channel is the best material there is for "what just
-happened". What is sent is only ever headline text, source names and ages. No
-article bodies, no reading history.
+The summary reads the newest eight items in the window, capped at three per source
+so one busy source cannot fill the prompt. What is sent is only ever headline
+text, source names and ages. No article bodies, no reading history.
 
 A summary regenerates only when that pool actually changes *and* the last one is
 at least five minutes old. The input is hashed (`SummaryStore.inputKey`) so a
@@ -191,6 +207,27 @@ worse than no calendar. FOMC dates come from the Fed's published schedule,
 shipped as a table; `precheck.py` fails once that table is close to running out
 so it cannot quietly go stale.
 
+**Tapping a release shows the numbers.** A calendar answers "when", which is only
+half of what that section is opened for, so each entry opens a sheet with the last
+published figures for the series it covers — CPI and core CPI year over year, the
+monthly change in payrolls plus the unemployment rate, initial claims against the
+previous week, the fed funds target — over a table of the last eight periods.
+
+They come from **FRED** via `fredgraph.csv`, which needs no key; FRED's documented
+API requires one, and this app's rule is that a feature cannot depend on the
+reader signing up for anything. The trade is that it is a convenience endpoint
+rather than a contract, so the sheet is allowed to fail and says so when it does.
+Its CSV is also quietly hostile — the first column header has been both `DATE` and
+`observation_date`, a missing observation is a bare `.`, and the line endings are
+CRLF — so the parser skips the header by *shape* rather than by name, and every one
+of those cases is a test.
+
+Two honesty rules apply. The numbers are for the period **already published**,
+which for a monthly release is the previous month, so the sheet labels the period
+rather than implying the figure belongs to the date above it. And **ISM has no free
+series**: FRED's were pulled for licensing reasons, so those two entries say that
+outright instead of showing an empty table.
+
 ## How each source is read
 
 Four transports, because these sources have nothing in common technically.
@@ -200,12 +237,14 @@ RSS 1.0/RDF all go through one parser. Every source carries backup feed
 addresses that are tried in order when the primary is unreachable, which is
 what keeps a section from emptying because one host is having a bad day.
 
-**Telegram** — WarFront Witness (`@wfwitness`). Telegram publishes no RSS, and
+**Telegram** — no channel ships as a default any more (see *Rate mismatch*), but
+the transport is still there for one added by hand. Telegram publishes no RSS, and
 its Bot API cannot read a channel the bot was not added to as an admin. What a
 public channel does have is `t.me/s/<channel>`, a server-rendered page of recent
 posts requiring no account. That page is parsed directly. It is scraping, so it
 degrades rather than fails: a post with no text still yields its photo and its
-link.
+link, and a video post — which Telegram serves as a plain MP4 on its CDN — plays
+in the reader.
 
 **Steam** — `ISteamNews/GetNewsForApp` needs no API key, so game news works with
 nothing configured beyond a list of App IDs. Discovering that list automatically

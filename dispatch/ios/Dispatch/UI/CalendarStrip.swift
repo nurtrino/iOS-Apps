@@ -9,6 +9,7 @@ import SwiftUI
 struct CalendarStrip: View {
 
     @State private var isExpanded = false
+    @State private var showing: EconEvent?
 
     private var events: [EconEvent] {
         EconCalendar.upcoming(limit: isExpanded ? 12 : 4)
@@ -37,7 +38,13 @@ struct CalendarStrip: View {
 
             VStack(spacing: 0) {
                 ForEach(events) { event in
-                    EventRow(event: event)
+                    Button {
+                        showing = event
+                    } label: {
+                        EventRow(event: event)
+                    }
+                    .buttonStyle(.plain)
+
                     if event.id != events.last?.id {
                         Divider().padding(.leading, 58)
                     }
@@ -47,8 +54,7 @@ struct CalendarStrip: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             if isExpanded {
-                Text("Dates marked ~ follow the usual pattern and can move by a day or two. "
-                     + "FOMC dates are the Fed's published schedule.")
+                Text(footnote)
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -56,6 +62,12 @@ struct CalendarStrip: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
+        .sheet(item: $showing) { EventDetailSheet(event: $0) }
+    }
+
+    private var footnote: String {
+        "Dates marked ~ follow the usual pattern and can move by a day or two. FOMC dates are "
+            + "the Fed's published schedule. Tap a release for the last published numbers."
     }
 }
 
