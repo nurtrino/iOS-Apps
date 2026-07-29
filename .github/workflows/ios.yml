@@ -88,11 +88,13 @@ jobs:
         run: |
           set -euo pipefail
           TAG=latest
+          # Three workflows share this one release, so the notes are set on
+          # every publish rather than only at creation — otherwise whichever
+          # workflow happened to run first describes all of the assets.
+          NOTES="Rolling builds of everything in this repo. The .ipa files are unsigned; sign before installing. The .apk is debug-signed."
           gh release view "$TAG" >/dev/null 2>&1 || \
-            gh release create "$TAG" \
-              --title "Latest build" \
-              --notes "Unsigned iOS build of the /pol/ reader. Sign before installing." \
-              --latest || true
+            gh release create "$TAG" --title "Latest build" --notes "$NOTES" --latest || true
+          gh release edit "$TAG" --notes "$NOTES" >/dev/null
           gh release upload "$TAG" PolReader-unsigned.ipa --clobber
 
           # Confirm against the API that the asset actually changed, rather

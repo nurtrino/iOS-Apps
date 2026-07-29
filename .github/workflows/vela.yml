@@ -95,9 +95,10 @@ jobs:
         run: |
           set -euo pipefail
           TAG=latest
+          NOTES="Rolling builds of everything in this repo. The .ipa files are unsigned; sign before installing. The .apk is debug-signed."
           gh release view "$TAG" >/dev/null 2>&1 || \
-            gh release create "$TAG" --title "Latest build" \
-              --notes "Unsigned builds. Sign before installing." --latest || true
+            gh release create "$TAG" --title "Latest build" --notes "$NOTES" --latest || true
+          gh release edit "$TAG" --notes "$NOTES" >/dev/null
           gh release upload "$TAG" Vela-unsigned.ipa --clobber
 
           gh release view "$TAG" --json assets \
