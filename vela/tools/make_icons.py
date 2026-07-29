@@ -20,8 +20,8 @@ import zlib
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP = os.path.dirname(HERE)
 
-BACKGROUND = (0x10, 0x14, 0x18)
-MARK = (0x5C, 0xC7, 0xB8)
+BACKGROUND = (0x0C, 0x0C, 0x0E)
+MARK = (0xE0, 0x32, 0x2F)
 
 
 def write_png(path, width, height, pixels):

@@ -1,8 +1,10 @@
 import SwiftUI
 
 enum Palette {
-    static let accent = Color(red: 0.36, green: 0.78, blue: 0.72)
-    static let accentDeep = Color(red: 0.20, green: 0.60, blue: 0.58)
+    /// Sampled from the app icon's mark, so the tint and the icon are the same
+    /// red rather than two that nearly match.
+    static let accent = Color(red: 0.88, green: 0.20, blue: 0.18)
+    static let accentDeep = Color(red: 0.64, green: 0.11, blue: 0.10)
     static let surface = Color.secondary.opacity(0.10)
     static let surfaceStrong = Color.secondary.opacity(0.18)
 }
