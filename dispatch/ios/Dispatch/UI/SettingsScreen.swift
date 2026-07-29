@@ -118,17 +118,28 @@ struct SettingsScreen: View {
         } header: {
             Text("Reading")
         } footer: {
-            Text("The brief is the newest few headlines per topic, one per source before any "
-                 + "source repeats, plus the real numbers where a topic has them. With AI "
-                 + "summaries on it opens with a couple of sentences written by Claude; "
-                 + "otherwise it is purely a digest of what is already there and nothing is "
-                 + "sent anywhere to write it.\n\n"
-                 + (settings.linkBehavior == .reader
-                 ? "The reader uses the article text the feed itself publishes. Sources that "
-                   + "syndicate only a summary show one, with the full page a tap away."
-                 : "Headlines open the publisher's page in Safari. The reader is still available "
-                   + "from a long press."))
+            Text(readingFooter)
         }
+    }
+
+    /// Built as a plain `String` rather than inline in the `Text`: a long
+    /// `+` chain with a ternary inside a ViewBuilder is exactly the shape the
+    /// compiler gives up type-checking — it failed CI, not hypothetically.
+    private var readingFooter: String {
+        let brief = "The brief is the newest few headlines per topic, one per source before any "
+            + "source repeats, plus the real numbers where a topic has them. With AI "
+            + "summaries on it opens with a couple of sentences written by Claude; "
+            + "otherwise it is purely a digest of what is already there and nothing is "
+            + "sent anywhere to write it."
+        let reader: String
+        if settings.linkBehavior == .reader {
+            reader = "The reader uses the article text the feed itself publishes. Sources that "
+                + "syndicate only a summary show one, with the full page a tap away."
+        } else {
+            reader = "Headlines open the publisher's page in Safari. The reader is still available "
+                + "from a long press."
+        }
+        return brief + "\n\n" + reader
     }
 
     private var appearanceSection: some View {
@@ -207,14 +218,18 @@ struct SettingsScreen: View {
         } header: {
             Text("About")
         } footer: {
-            Text("Dispatch reads public feeds directly from the device. There is no account, no "
-                 + "server in between and no tracking. Stories are sorted into topics on the "
-                 + "phone — nothing is sent anywhere to classify it. It can hold two credentials, "
-                 + "both in the Keychain: a Steam API key, sent only to Valve, and an Anthropic "
-                 + "API key, sent only to Anthropic. With AI summaries on, the headlines in each "
-                 + "section's brief are sent to Anthropic to be summarized — that is the one "
-                 + "thing that leaves the device, and only when you turn it on.")
+            Text(aboutFooter)
         }
+    }
+
+    private var aboutFooter: String {
+        "Dispatch reads public feeds directly from the device. There is no account, no "
+            + "server in between and no tracking. Stories are sorted into topics on the "
+            + "phone — nothing is sent anywhere to classify it. It can hold two credentials, "
+            + "both in the Keychain: a Steam API key, sent only to Valve, and an Anthropic "
+            + "API key, sent only to Anthropic. With AI summaries on, the headlines in each "
+            + "section's brief are sent to Anthropic to be summarized — that is the one "
+            + "thing that leaves the device, and only when you turn it on."
     }
 }
 
