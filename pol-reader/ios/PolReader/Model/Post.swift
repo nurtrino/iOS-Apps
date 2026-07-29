@@ -96,6 +96,13 @@ struct Attachment: Hashable {
         [".jpg", ".jpeg", ".png", ".gif"].contains(lowercasedExt)
     }
 
+    /// True for the containers the photo library accepts.
+    ///
+    /// The exclusion is WebM, for the same reason it cannot be played natively:
+    /// Photos stores what AVFoundation understands, and that has never included
+    /// it. Nothing the app does client-side changes that short of transcoding.
+    var isSavableToPhotos: Bool { isDisplayableImage || isNativelyPlayable }
+
     var aspectRatio: Double {
         guard width > 0, height > 0 else { return 1 }
         return Double(width) / Double(height)

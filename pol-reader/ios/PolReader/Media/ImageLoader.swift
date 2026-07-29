@@ -100,6 +100,32 @@ actor ImageLoader {
         }
     }
 
+    /// The bytes of a media file, for the things a `UIImage` cannot represent.
+    ///
+    /// Two callers: an animated GIF, whose frames the animator reads itself
+    /// (`UIImage` would keep only the first), and saving to Photos, which wants
+    /// the original file rather than a re-encode of a decoded frame.
+    ///
+    /// Deliberately not held in the image cache. `URLCache` on this session
+    /// already keeps the response in memory and on disk, so a second copy of a
+    /// multi-megabyte file would buy nothing.
+    func data(for url: URL) async throws -> Data {
+        await gate.acquire()
+        defer { Task { await gate.release() } }
+
+        do {
+            let (data, response) = try await session.data(from: url)
+            try Task.checkCancellation()
+
+            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                throw http.statusCode == 404 ? ChanError.notFound : ChanError.server(http.statusCode)
+            }
+            return data
+        } catch {
+            throw ChanError.from(error)
+        }
+    }
+
     private func download(_ url: URL) async throws -> UIImage {
         await gate.acquire()
         defer { Task { await gate.release() } }
