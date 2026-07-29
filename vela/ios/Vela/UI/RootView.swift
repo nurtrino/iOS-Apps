@@ -16,16 +16,16 @@ struct RootView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selectedTab) {
-                YouTubeScreen()
-                    .tabItem { Label("YouTube", systemImage: "play.rectangle") }
+                DiscoverScreen()
+                    .tabItem { Label("Discover", systemImage: "sparkles") }
                     .tag(0)
 
-                DiscoverScreen()
-                    .tabItem { Label("PeerTube", systemImage: "sparkles") }
+                SearchScreen()
+                    .tabItem { Label("Search", systemImage: "magnifyingglass") }
                     .tag(1)
 
-                UnifiedSearchScreen()
-                    .tabItem { Label("Search", systemImage: "magnifyingglass") }
+                SubscriptionsScreen()
+                    .tabItem { Label("Following", systemImage: "person.2") }
                     .tag(2)
 
                 LibraryScreen()

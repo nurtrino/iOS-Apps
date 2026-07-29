@@ -24,24 +24,14 @@
 		8F10063438F3C7AC7094F491 /* PeerTubeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF38C32D6738AA93898ADCA7 /* PeerTubeAPI.swift */; };
 		8BBF7A2B51DCD35C02B26F80 /* PlayerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52E1B75B494D613E0703104A /* PlayerEngine.swift */; };
 		5D89E21E46D31E0EC628C926 /* PlayerLayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA73991A86B5D1D68AFB9B9D /* PlayerLayerView.swift */; };
-		6F8BEE4CE23D5C7E4B26177F /* APIKeySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC14107FA3F2FDD3D8B04587 /* APIKeySheet.swift */; };
 		DD09502277299121CF669D22 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49D89ED03E47731FDCF52E8C /* Components.swift */; };
 		FC14D7C2677B3F60281EC5EB /* FeedScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F7E2D8CB6157836162C9700 /* FeedScreens.swift */; };
 		4F515DFCF55E2858C7D9784B /* FullPlayerScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18DA00CE254EBB85432D04E5 /* FullPlayerScreen.swift */; };
 		8F7C8227342A236F264B29D5 /* LibraryScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E5DADFB7FAA7B7C3B55F1A7 /* LibraryScreen.swift */; };
 		8B112E87B79E01E1DFD5FF58 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E184F84906A6E5AAD2763BD /* RootView.swift */; };
 		CF4BA855141D5184061311B0 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9A714D58463A05EB7CBBF81 /* SettingsScreen.swift */; };
-		A41898982A88A60868F9AB11 /* UnifiedSearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B362628B6F97D40F288EEEB9 /* UnifiedSearchScreen.swift */; };
 		43777C23D5FCA174B93482F4 /* VideoDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 422B519D6C86E1CEBBF40AD7 /* VideoDetailScreen.swift */; };
-		BC04007443AB3B59150EFF6E /* YouTubeScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F45C5163084B3816E08852 /* YouTubeScreens.swift */; };
 		5DBB6C68D10BA6E615371DDA /* VelaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBBE7081318715373E6E90F9 /* VelaApp.swift */; };
-		953170A9BC6D62D6BDEC30A9 /* APIKeyStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0C8BA11B98F4B08863E82A3 /* APIKeyStatus.swift */; };
-		76DBF6A83D27293CE5371B5F /* APIKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56A38D81538023BA1CD1E537 /* APIKeyStore.swift */; };
-		8FED3E54FFF8CF06D48454CE /* YouTubeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = B686DB51C940BE24AF75E359 /* YouTubeAPI.swift */; };
-		7604CB2E0E26CC942C46A6FA /* YouTubeDuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57D26973210374CE304C2674 /* YouTubeDuration.swift */; };
-		141874529008551CDB621388 /* YouTubeEmbedPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8892101A280D96C37B5A646F /* YouTubeEmbedPlayer.swift */; };
-		D9D7F4CA82289BFD1F2CF729 /* YouTubeFeedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05C77CAE2691B4D0720474FB /* YouTubeFeedStore.swift */; };
-		BB65F446657E9C9B24FEA4E6 /* YouTubeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D69B1EEE7EF7C9E3E482FD1 /* YouTubeModels.swift */; };
 		7D1DBA83F5517888388F38D2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F4520D96AC0EDB42E750BB2B /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -65,24 +55,14 @@
 		FF38C32D6738AA93898ADCA7 /* PeerTubeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerTubeAPI.swift; sourceTree = "<group>"; };
 		52E1B75B494D613E0703104A /* PlayerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerEngine.swift; sourceTree = "<group>"; };
 		DA73991A86B5D1D68AFB9B9D /* PlayerLayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerLayerView.swift; sourceTree = "<group>"; };
-		AC14107FA3F2FDD3D8B04587 /* APIKeySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeySheet.swift; sourceTree = "<group>"; };
 		49D89ED03E47731FDCF52E8C /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		1F7E2D8CB6157836162C9700 /* FeedScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedScreens.swift; sourceTree = "<group>"; };
 		18DA00CE254EBB85432D04E5 /* FullPlayerScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullPlayerScreen.swift; sourceTree = "<group>"; };
 		8E5DADFB7FAA7B7C3B55F1A7 /* LibraryScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryScreen.swift; sourceTree = "<group>"; };
 		8E184F84906A6E5AAD2763BD /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		E9A714D58463A05EB7CBBF81 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
-		B362628B6F97D40F288EEEB9 /* UnifiedSearchScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedSearchScreen.swift; sourceTree = "<group>"; };
 		422B519D6C86E1CEBBF40AD7 /* VideoDetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDetailScreen.swift; sourceTree = "<group>"; };
-		18F45C5163084B3816E08852 /* YouTubeScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeScreens.swift; sourceTree = "<group>"; };
 		EBBE7081318715373E6E90F9 /* VelaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VelaApp.swift; sourceTree = "<group>"; };
-		F0C8BA11B98F4B08863E82A3 /* APIKeyStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyStatus.swift; sourceTree = "<group>"; };
-		56A38D81538023BA1CD1E537 /* APIKeyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyStore.swift; sourceTree = "<group>"; };
-		B686DB51C940BE24AF75E359 /* YouTubeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAPI.swift; sourceTree = "<group>"; };
-		57D26973210374CE304C2674 /* YouTubeDuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeDuration.swift; sourceTree = "<group>"; };
-		8892101A280D96C37B5A646F /* YouTubeEmbedPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeEmbedPlayer.swift; sourceTree = "<group>"; };
-		05C77CAE2691B4D0720474FB /* YouTubeFeedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeFeedStore.swift; sourceTree = "<group>"; };
-		6D69B1EEE7EF7C9E3E482FD1 /* YouTubeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeModels.swift; sourceTree = "<group>"; };
 		F5BF48AA40CAD7891EB709FC /* Vela.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Vela.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -166,32 +146,15 @@
 		856F12DEF98298A55E50E340 /* UI */ = {
 			isa = PBXGroup;
 			children = (
-				AC14107FA3F2FDD3D8B04587 /* APIKeySheet.swift */,
 				49D89ED03E47731FDCF52E8C /* Components.swift */,
 				1F7E2D8CB6157836162C9700 /* FeedScreens.swift */,
 				18DA00CE254EBB85432D04E5 /* FullPlayerScreen.swift */,
 				8E5DADFB7FAA7B7C3B55F1A7 /* LibraryScreen.swift */,
 				8E184F84906A6E5AAD2763BD /* RootView.swift */,
 				E9A714D58463A05EB7CBBF81 /* SettingsScreen.swift */,
-				B362628B6F97D40F288EEEB9 /* UnifiedSearchScreen.swift */,
 				422B519D6C86E1CEBBF40AD7 /* VideoDetailScreen.swift */,
-				18F45C5163084B3816E08852 /* YouTubeScreens.swift */,
 			);
 			path = UI;
-			sourceTree = "<group>";
-		};
-		B6051AC233E622E809B4C86C /* YouTube */ = {
-			isa = PBXGroup;
-			children = (
-				F0C8BA11B98F4B08863E82A3 /* APIKeyStatus.swift */,
-				56A38D81538023BA1CD1E537 /* APIKeyStore.swift */,
-				B686DB51C940BE24AF75E359 /* YouTubeAPI.swift */,
-				57D26973210374CE304C2674 /* YouTubeDuration.swift */,
-				8892101A280D96C37B5A646F /* YouTubeEmbedPlayer.swift */,
-				05C77CAE2691B4D0720474FB /* YouTubeFeedStore.swift */,
-				6D69B1EEE7EF7C9E3E482FD1 /* YouTubeModels.swift */,
-			);
-			path = YouTube;
 			sourceTree = "<group>";
 		};
 		463DAB8F4430941248BE1282 /* Vela */ = {
@@ -205,7 +168,6 @@
 				B87ACA5CADD6939E423F35DA /* Net */,
 				06CCC6422D1AA4BC0EBCBAF3 /* Playback */,
 				856F12DEF98298A55E50E340 /* UI */,
-				B6051AC233E622E809B4C86C /* YouTube */,
 				F4520D96AC0EDB42E750BB2B /* Assets.xcassets */,
 				12F1C9823B7D241C34392D7F /* Info.plist */,
 				EBBE7081318715373E6E90F9 /* VelaApp.swift */,
@@ -315,24 +277,14 @@
 				8F10063438F3C7AC7094F491 /* PeerTubeAPI.swift in Sources */,
 				8BBF7A2B51DCD35C02B26F80 /* PlayerEngine.swift in Sources */,
 				5D89E21E46D31E0EC628C926 /* PlayerLayerView.swift in Sources */,
-				6F8BEE4CE23D5C7E4B26177F /* APIKeySheet.swift in Sources */,
 				DD09502277299121CF669D22 /* Components.swift in Sources */,
 				FC14D7C2677B3F60281EC5EB /* FeedScreens.swift in Sources */,
 				4F515DFCF55E2858C7D9784B /* FullPlayerScreen.swift in Sources */,
 				8F7C8227342A236F264B29D5 /* LibraryScreen.swift in Sources */,
 				8B112E87B79E01E1DFD5FF58 /* RootView.swift in Sources */,
 				CF4BA855141D5184061311B0 /* SettingsScreen.swift in Sources */,
-				A41898982A88A60868F9AB11 /* UnifiedSearchScreen.swift in Sources */,
 				43777C23D5FCA174B93482F4 /* VideoDetailScreen.swift in Sources */,
-				BC04007443AB3B59150EFF6E /* YouTubeScreens.swift in Sources */,
 				5DBB6C68D10BA6E615371DDA /* VelaApp.swift in Sources */,
-				953170A9BC6D62D6BDEC30A9 /* APIKeyStatus.swift in Sources */,
-				76DBF6A83D27293CE5371B5F /* APIKeyStore.swift in Sources */,
-				8FED3E54FFF8CF06D48454CE /* YouTubeAPI.swift in Sources */,
-				7604CB2E0E26CC942C46A6FA /* YouTubeDuration.swift in Sources */,
-				141874529008551CDB621388 /* YouTubeEmbedPlayer.swift in Sources */,
-				D9D7F4CA82289BFD1F2CF729 /* YouTubeFeedStore.swift in Sources */,
-				BB65F446657E9C9B24FEA4E6 /* YouTubeModels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
