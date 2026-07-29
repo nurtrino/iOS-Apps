@@ -159,6 +159,14 @@ python3 dispatch/tools/make_icons.py          # regenerate the icon
 xcodebuild build -project dispatch/ios/Dispatch.xcodeproj -scheme Dispatch
 ```
 
+One build setting is load-bearing and non-obvious: `PRODUCT_MODULE_NAME` is
+`DispatchNews`, not `Dispatch`. `Dispatch` is Apple's own module — libdispatch,
+where `DispatchQueue` lives — and Foundation imports it, so a target whose Swift
+module is also called `Dispatch` produces `circular dependency between modules
+'Dispatch' and 'Foundation'` and never compiles. Nothing refers to the module by
+name, so the product, the scheme, the `.app` and the name on the home screen all
+stay "Dispatch".
+
 The Xcode project is generated rather than hand-maintained: a source file that
 exists on disk and is not listed in the project simply is not compiled, and the
 failure surfaces much later as an undefined symbol pointing at the use rather

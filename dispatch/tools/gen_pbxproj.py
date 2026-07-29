@@ -26,6 +26,28 @@ BUNDLE_ID = "com.nurtrino.dispatch"
 DEPLOYMENT_TARGET = "16.0"
 SWIFT_VERSION = "5.0"
 
+# The Swift module cannot be called "Dispatch".
+#
+# `Dispatch` is Apple's own module — libdispatch, where `DispatchQueue` lives —
+# and Foundation imports it. A target whose module is also named `Dispatch`
+# therefore makes Foundation depend on us and us depend on Foundation, and the
+# build dies with:
+#
+#     error: circular dependency between modules 'Dispatch' and 'Foundation'
+#
+# There is no source-level fix; the module simply needs another name. The
+# product, the scheme, the .app and the name on the home screen all stay
+# "Dispatch" — only the Swift module differs, and nothing refers to it by name.
+MODULE_NAME = "DispatchNews"
+
+# Module names that collide with a system framework in the same way. Not
+# exhaustive, but these are the ones an app is plausibly named after.
+RESERVED_MODULE_NAMES = {
+    "Dispatch", "Foundation", "Combine", "Network", "Contacts", "Photos",
+    "Vision", "Speech", "Metal", "Charts", "Observation", "Testing", "Swift",
+    "Darwin", "Security", "Accounts", "Intents", "Messages", "Social",
+}
+
 IOS_DIR = os.path.join(REPO, "ios")
 SOURCE_ROOT = os.path.join(IOS_DIR, PROJECT_NAME)
 PROJECT_DIR = os.path.join(IOS_DIR, PROJECT_NAME + ".xcodeproj")
@@ -123,6 +145,12 @@ def settings_block(pairs, indent="\t\t\t\t"):
 
 
 def generate():
+    if MODULE_NAME in RESERVED_MODULE_NAMES:
+        raise SystemExit(
+            "MODULE_NAME %r collides with a system module — the build will fail with "
+            "'circular dependency between modules'" % MODULE_NAME
+        )
+
     sources, resources = collect()
     if not sources:
         raise SystemExit("no Swift sources found under %s" % SOURCE_ROOT)
@@ -359,6 +387,7 @@ def generate():
          "(\n\t\t\t\t\t\"$(inherited)\",\n\t\t\t\t\t\"@executable_path/Frameworks\",\n\t\t\t\t)"),
         ("MARKETING_VERSION", "1.0"),
         ("PRODUCT_BUNDLE_IDENTIFIER", BUNDLE_ID),
+        ("PRODUCT_MODULE_NAME", MODULE_NAME),
         ("PRODUCT_NAME", "\"$(TARGET_NAME)\""),
         ("SWIFT_EMIT_LOC_STRINGS", "YES"),
         ("TARGETED_DEVICE_FAMILY", "\"1,2\""),
