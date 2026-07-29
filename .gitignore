@@ -1,0 +1,21 @@
+# Build output
+build/
+payload/
+*.ipa
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+.gradle/
+
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
