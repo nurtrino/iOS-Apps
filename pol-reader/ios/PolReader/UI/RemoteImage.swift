@@ -132,6 +132,17 @@ struct PostThumbnail: View {
     /// True only while a tap here would actually do something locally.
     private var needsRevealTap: Bool { allowsReveal && (isHidden || isBlurred) }
 
+    /// Whether this is a GIF that should animate where it sits.
+    ///
+    /// Only where the full file is being fetched anyway — the CDN thumbnail is
+    /// a `.jpg` whatever the upload was, so a catalog cell has no frames to
+    /// play and nothing to gain from asking for them. Concealed media stays a
+    /// still as well: there is nothing to see through a blur, and decoding
+    /// frames for it is pure cost.
+    private var playsInline: Bool {
+        useFullImage && attachment.isAnimatedGIF && !attachment.isDeleted && !isBlurred
+    }
+
     var body: some View {
         content
             .clipShape(RoundedRectangle(cornerRadius: isFill ? 10 : 6))
@@ -172,12 +183,21 @@ struct PostThumbnail: View {
                     .clipped()
 
             case .fill(let maxHeight):
-                RemoteImage(url: sourceURL, contentMode: .fit)
+                fullWidthImage
                     .aspectRatio(aspectRatio, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                     .frame(maxHeight: maxHeight)
                     .blur(radius: isBlurred ? 26 : 0)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var fullWidthImage: some View {
+        if playsInline {
+            RemoteAnimatedImage(url: sourceURL, contentMode: .fit)
+        } else {
+            RemoteImage(url: sourceURL, contentMode: .fit)
         }
     }
 
@@ -192,22 +212,25 @@ struct PostThumbnail: View {
     }
 
     /// Video gets a play glyph and its container named, so it is obvious before
-    /// tapping that this is a clip and which format it is.
+    /// tapping that this is a clip and which format it is. A GIF is named for
+    /// the same reason: the thumbnail the CDN serves for one is a still, so
+    /// without the badge there is nothing to say it moves.
     @ViewBuilder
     private var badge: some View {
         if attachment.isVideo && !isHidden {
-            HStack(spacing: 3) {
-                Image(systemName: "play.fill")
-                    .font(.system(size: isFill ? 11 : 8))
-                Text(attachment.ext.dropFirst().uppercased())
+            formatBadge {
+                HStack(spacing: 3) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: isFill ? 11 : 8))
+                    Text(attachment.ext.dropFirst().uppercased())
+                        .font(.system(size: isFill ? 10 : 8, weight: .semibold))
+                }
+            }
+        } else if attachment.isAnimatedGIF && !isHidden && !isBlurred {
+            formatBadge {
+                Text("GIF")
                     .font(.system(size: isFill ? 10 : 8, weight: .semibold))
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(.black.opacity(0.6))
-            .clipShape(Capsule())
-            .padding(5)
         } else if isBlurred {
             Image(systemName: "eye.slash.fill")
                 .font(.system(size: 9))
@@ -216,6 +239,16 @@ struct PostThumbnail: View {
                 .background(.black.opacity(0.5), in: Circle())
                 .padding(5)
         }
+    }
+
+    private func formatBadge<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .foregroundStyle(.white)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(.black.opacity(0.6))
+            .clipShape(Capsule())
+            .padding(5)
     }
 
     private func placeholder(systemImage: String, label: String) -> some View {

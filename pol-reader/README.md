@@ -56,7 +56,7 @@ ios/PolReader/
   Text/       comment HTML → renderable blocks        ← most intricate, most reusable
   Thread/     backlink index, derived tree, outline operations
   Data/       stores: catalog, thread, settings, library, filters
-  Media/      image loading and caching
+  Media/      image loading and caching, GIF playback, saving to Photos
   UI/         SwiftUI screens                         ← the only platform-specific half
 tools/        project generation, icon generation, parser and thread tests
 ```
@@ -150,3 +150,6 @@ update-tracking app like Obtainium only works against a stable key.
 - **WebM has no in-app player.** It is the only video container 4chan accepts
   and the one iOS will not play, so those open externally rather than in a
   player that cannot work.
+- **WebM cannot be saved to Photos either.** The photo library stores what
+  AVFoundation understands, which has never included WebM. Save reports that
+  rather than failing quietly; sharing the file out is the way round it.
