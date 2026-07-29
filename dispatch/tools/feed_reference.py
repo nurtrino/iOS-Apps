@@ -1130,3 +1130,52 @@ def is_predominantly_latin(text, threshold=0.5):
     if total < 8:
         return True
     return latin / total >= threshold
+
+
+# --- The generated brief ----------------------------------------------------
+#
+# The Claude API request is built entirely from strings the digest already
+# shows, and the constants are read *out of the Swift* for the same reason the
+# lexicon is: a copied endpoint or version string would drift silently. The
+# prompt builder and the input key are mirrored properly, because those are the
+# two pieces of pure logic — a byte of drift in the key means summaries
+# regenerate (and bill) on every refresh.
+
+SUMMARY_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "ios", "Dispatch", "Net", "SummaryAPI.swift",
+)
+
+SUMMARY_CONST_RE = re.compile(r'static let (\w+) = (?:"([^"]*)"|(\d+))')
+
+
+def summary_constants(path=SUMMARY_PATH):
+    """The `static let` constants of SummaryAPI, as {name: value}."""
+    source = open(path, encoding="utf-8").read()
+    constants = {}
+    for name, text, number in SUMMARY_CONST_RE.findall(source):
+        constants[name] = int(number) if number else text
+    return constants
+
+
+def stable_hash_hex(text):
+    """Mirrors StableHash.hex — FNV-1a over UTF-8, lowercase hex, no padding."""
+    value = 0xCBF29CE484222325
+    for byte in text.encode("utf-8"):
+        value ^= byte
+        value = (value * 0x00000100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return "%x" % value
+
+
+def brief_input_key(article_ids):
+    """Mirrors SummaryStore.inputKey — order-independent by design."""
+    return stable_hash_hex("\n".join(sorted(article_ids)))
+
+
+def summary_prompt(topic, headlines):
+    """Mirrors SummaryAPI.prompt. `headlines` is [(title, source, age-or-None)]."""
+    lines = ["Section: %s" % topic, "Headlines, newest first:"]
+    for title, source, age in headlines:
+        suffix = ", %s" % age if age is not None else ""
+        lines.append("- [%s%s] %s" % (source, suffix, title))
+    return "\n".join(lines)

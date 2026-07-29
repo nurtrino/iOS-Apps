@@ -31,6 +31,7 @@ from feed_reference import (  # noqa: E402
     load_lexicon, classify, normalise, is_local_host, normalized_host,
     links_in, outbound_link,
     expand_placeholders, strip_remaining_tags, is_predominantly_latin,
+    summary_constants, stable_hash_hex, brief_input_key, summary_prompt,
 )
 
 FAILURES = []
@@ -796,6 +797,60 @@ check("an empty title is kept", is_predominantly_latin(""), True)
 # Bilingual announcements are common and stay, since half of it is readable.
 check("a mixed title leaning Latin is kept",
       is_predominantly_latin("Update 1.4 is now live 更新"), True)
+
+
+# --- The generated brief ----------------------------------------------------
+#
+# The Claude API request has three parts worth pinning without a network: the
+# wire constants (read out of the Swift, so a typo in the endpoint or version
+# header fails here instead of failing live), the input key that decides when a
+# summary regenerates (and therefore when money is spent), and the prompt text.
+
+_SUMMARY = summary_constants()
+
+check("the endpoint is the Messages API",
+      _SUMMARY.get("endpoint"), "https://api.anthropic.com/v1/messages")
+check("the anthropic-version header is the stable one",
+      _SUMMARY.get("apiVersion"), "2023-06-01")
+check("the model is claude-opus-5", _SUMMARY.get("model"), "claude-opus-5")
+check_true("max_tokens is a sane bound",
+           isinstance(_SUMMARY.get("maxTokens"), int) and 0 < _SUMMARY["maxTokens"] <= 2000)
+
+# The Swift must send the key in x-api-key and check for the refusal stop
+# reason — both are the kind of detail that parses fine and fails live.
+_SUMMARY_SOURCE = open(os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "ios", "Dispatch", "Net", "SummaryAPI.swift"), encoding="utf-8").read()
+check_true("the key goes in the x-api-key header", 'forHTTPHeaderField: "x-api-key"' in _SUMMARY_SOURCE)
+check_true("the version header is sent", 'forHTTPHeaderField: "anthropic-version"' in _SUMMARY_SOURCE)
+check_true("a refusal stop reason is handled", '"refusal"' in _SUMMARY_SOURCE)
+
+# FNV-1a against the published test vectors, so the mirror and the Swift are
+# both checked against a third thing rather than only against each other.
+check("FNV-1a offset basis", stable_hash_hex(""), "cbf29ce484222325")
+check("FNV-1a of 'a'", stable_hash_hex("a"), "af63dc4c8601ec8c")
+check("FNV-1a of 'foobar'", stable_hash_hex("foobar"), "85944171f73967e8")
+
+# The input key must not care about order — a refresh that reorders the same
+# five headlines is not a change and must not bill.
+check("the input key is order-independent",
+      brief_input_key(["zerohedge:2", "twz:1", "cfp:3"]),
+      brief_input_key(["cfp:3", "zerohedge:2", "twz:1"]))
+check_true("a different set is a different key",
+           brief_input_key(["a", "b"]) != brief_input_key(["a", "c"]))
+check("the key is the hash of ids joined by newline, sorted",
+      brief_input_key(["b", "a"]), stable_hash_hex("a\nb"))
+
+# The prompt, byte for byte.
+check("the prompt shape",
+      summary_prompt("Markets", [
+          ("CPI comes in hot at 3.4%", "ZeroHedge", "23m"),
+          ("Futures slide ahead of the open", "Citizen Free Press", None),
+      ]),
+      "Section: Markets\n"
+      "Headlines, newest first:\n"
+      "- [ZeroHedge, 23m] CPI comes in hot at 3.4%\n"
+      "- [Citizen Free Press] Futures slide ahead of the open")
 
 
 # --- Report -----------------------------------------------------------------

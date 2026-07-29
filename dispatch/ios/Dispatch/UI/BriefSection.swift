@@ -2,17 +2,18 @@ import SwiftUI
 
 /// The catch-up block at the top of a topic.
 ///
-/// This is a **digest, not a summary**, and the difference is worth being
-/// straight about. Writing prose that says what happened needs a language
-/// model, which would mean either tens of megabytes on device or sending every
-/// headline you read to somebody's API. Neither is worth it for a line of text.
+/// Two layers, and they degrade independently. The base is a **digest** built
+/// from material that is already true: the newest few headlines, one line
+/// each, numbered, plus a state line built from real numbers where the topic
+/// has any. On Markets that is the actual index moves and whether a release
+/// has already landed today — the specific question that section gets asked at
+/// nine in the morning.
 ///
-/// What it does instead is answer "what just happened" with material that is
-/// already true: the newest few headlines, one line each, numbered, plus a
-/// state line built from real numbers where the topic has any. On Markets that
-/// is the actual index moves and whether a release has already landed today —
-/// which is the specific question that section gets asked at nine in the
-/// morning.
+/// On top of it, when an Anthropic key is saved and the toggle is on, sits a
+/// **written summary**: two or three sentences from the Claude API saying what
+/// just happened. It is generated from exactly the headlines the digest shows
+/// (see `SummaryStore` for what is sent and how rarely). No key, no network,
+/// or a failed request — the digest stands alone, same as before.
 ///
 /// Selection is recency first, then one item per source before any source gets
 /// a second. A brief made of five posts from the same wire is not a brief.
@@ -27,6 +28,7 @@ struct BriefSection: View {
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var markets: MarketStore
     @EnvironmentObject private var live: LiveStore
+    @EnvironmentObject private var summaries: SummaryStore
 
     /// How far back the brief looks. Long enough to have something overnight,
     /// short enough that "just happened" is not a lie.
@@ -57,9 +59,35 @@ struct BriefSection: View {
         return picked.sorted { $0.sortDate > $1.sortDate }
     }
 
+    /// The headlines exactly as the model should see them — what the digest
+    /// rows themselves show, nothing more.
+    private var headlines: [SummaryAPI.Headline] {
+        items.map { article in
+            SummaryAPI.Headline(
+                title: article.displayTitle,
+                source: catalog.source(id: article.sourceID)?.name ?? article.sourceID,
+                age: article.published?.feedAge
+            )
+        }
+    }
+
+    private var wantsSummary: Bool {
+        settings.aiSummaries && settings.hasAnthropicKey
+    }
+
     var body: some View {
         if settings.showBrief, !items.isEmpty {
             Section {
+                if wantsSummary {
+                    summaryRow
+                        .listRowSeparator(.hidden)
+                        .task(id: SummaryStore.inputKey(for: items)) {
+                            await summaries.refreshIfNeeded(topic: topic,
+                                                            articles: items,
+                                                            headlines: headlines)
+                        }
+                }
+
                 if let state = stateLine {
                     Text(state)
                         .font(.system(size: 13, weight: .medium))
@@ -96,6 +124,39 @@ struct BriefSection: View {
                 }
                 .foregroundStyle(TopicTheme.accent(topic))
                 .textCase(nil)
+            }
+        }
+    }
+
+    /// The generated prose, its age, or why there is neither.
+    @ViewBuilder
+    private var summaryRow: some View {
+        if let brief = summaries.brief(for: topic) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(brief.text)
+                    .font(.system(size: 14))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Written by Claude · \(brief.generated.feedAge)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 2)
+        } else if let failure = summaries.failure(for: topic) {
+            Text(failure)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        } else {
+            // Also the state before the first request: the row has to render
+            // *something*, because a row that renders nothing never appears,
+            // and a row that never appears never fires the task that would
+            // have started the request.
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Summarizing…")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
             }
         }
     }

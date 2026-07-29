@@ -90,6 +90,8 @@ final class SettingsStore: ObservableObject {
         static let showSortingEvidence = "settings.showSortingEvidence"
         static let steamLatinOnly = "settings.steamLatinOnly"
         static let showBrief = "settings.showBrief"
+        static let aiSummaries = "settings.aiSummaries"
+        static let hasAnthropicKey = "settings.hasAnthropicKey"
     }
 
     private let defaults: UserDefaults
@@ -170,6 +172,14 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(showBrief, forKey: Key.showBrief) }
     }
 
+    /// Whether the brief opens with prose written by the Claude API.
+    ///
+    /// Off by default and inert without a key: this is the one feature that
+    /// sends anything off the device, so it exists only by explicit opt-in.
+    @Published var aiSummaries: Bool {
+        didSet { defaults.set(aiSummaries, forKey: Key.aiSummaries) }
+    }
+
     /// Mirrors whether a key is in the Keychain.
     ///
     /// The key itself never comes back out into a published property, but the
@@ -177,6 +187,11 @@ final class SettingsStore: ObservableObject {
     /// while a Keychain read is an actor hop away.
     @Published private(set) var hasSteamKey: Bool {
         didSet { defaults.set(hasSteamKey, forKey: Key.hasSteamKey) }
+    }
+
+    /// Same mirror, for the Anthropic key.
+    @Published private(set) var hasAnthropicKey: Bool {
+        didSet { defaults.set(hasAnthropicKey, forKey: Key.hasAnthropicKey) }
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -199,6 +214,8 @@ final class SettingsStore: ObservableObject {
         showSortingEvidence = defaults.object(forKey: Key.showSortingEvidence) as? Bool ?? true
         steamLatinOnly = defaults.object(forKey: Key.steamLatinOnly) as? Bool ?? true
         showBrief = defaults.object(forKey: Key.showBrief) as? Bool ?? true
+        aiSummaries = defaults.object(forKey: Key.aiSummaries) as? Bool ?? false
+        hasAnthropicKey = defaults.bool(forKey: Key.hasAnthropicKey)
 
         if let data = defaults.data(forKey: Key.xBridge),
            let decoded = try? JSONDecoder().decode(XBridge.self, from: data) {
@@ -222,6 +239,22 @@ final class SettingsStore: ObservableObject {
 
     func steamKey() async -> String? {
         await SteamKeychain.shared.load()
+    }
+
+    // MARK: - Anthropic key
+
+    func saveAnthropicKey(_ key: String) async {
+        await AnthropicKeychain.shared.save(key)
+        hasAnthropicKey = !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func clearAnthropicKey() async {
+        await AnthropicKeychain.shared.clear()
+        hasAnthropicKey = false
+    }
+
+    func anthropicKey() async -> String? {
+        await AnthropicKeychain.shared.load()
     }
 
     /// The knobs a feed load needs, gathered in one place so `FeedStore` does

@@ -50,6 +50,18 @@ struct SettingsScreen: View {
     private var bridgeSection: some View {
         Section("Feeds") {
             NavigationLink {
+                SummariesScreen()
+            } label: {
+                LabeledContent {
+                    Text(settings.aiSummaries && settings.hasAnthropicKey ? "On"
+                         : settings.hasAnthropicKey ? "Off" : "Not set")
+                        .foregroundStyle(settings.hasAnthropicKey ? .secondary : .tertiary)
+                } label: {
+                    Label("AI summaries", systemImage: "text.badge.star")
+                }
+            }
+
+            NavigationLink {
                 XBridgeScreen()
             } label: {
                 LabeledContent {
@@ -107,9 +119,10 @@ struct SettingsScreen: View {
             Text("Reading")
         } footer: {
             Text("The brief is the newest few headlines per topic, one per source before any "
-                 + "source repeats, plus the real numbers where a topic has them. It is a digest "
-                 + "of what is already there, not generated prose — nothing is sent anywhere to "
-                 + "write it.\n\n"
+                 + "source repeats, plus the real numbers where a topic has them. With AI "
+                 + "summaries on it opens with a couple of sentences written by Claude; "
+                 + "otherwise it is purely a digest of what is already there and nothing is "
+                 + "sent anywhere to write it.\n\n"
                  + (settings.linkBehavior == .reader
                  ? "The reader uses the article text the feed itself publishes. Sources that "
                    + "syndicate only a summary show one, with the full page a tap away."
@@ -196,8 +209,11 @@ struct SettingsScreen: View {
         } footer: {
             Text("Dispatch reads public feeds directly from the device. There is no account, no "
                  + "server in between and no tracking. Stories are sorted into topics on the "
-                 + "phone — nothing is sent anywhere to classify it. The only credential it can "
-                 + "hold is a Steam API key, which lives in the Keychain and is sent only to Valve.")
+                 + "phone — nothing is sent anywhere to classify it. It can hold two credentials, "
+                 + "both in the Keychain: a Steam API key, sent only to Valve, and an Anthropic "
+                 + "API key, sent only to Anthropic. With AI summaries on, the headlines in each "
+                 + "section's brief are sent to Anthropic to be summarized — that is the one "
+                 + "thing that leaves the device, and only when you turn it on.")
         }
     }
 }

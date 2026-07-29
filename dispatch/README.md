@@ -120,11 +120,21 @@ has one. On Markets that is the actual index moves and whether a release has
 already landed today, which is the question that section gets asked at nine in
 the morning.
 
-It is a **digest, not a summary**. Writing prose that says what happened needs a
-language model — tens of megabytes on device, or every headline you read sent to
-somebody's API — and neither is worth it for one line of text. Everything in the
-brief is material that is already there, selected and ordered. It can be turned
-off in Settings.
+The base layer is a **digest** — everything in it is material that is already
+there, selected and ordered, built with no network at all. It can be turned off
+in Settings.
+
+**AI summaries** sit on top, by explicit opt-in. Paste an Anthropic API key in
+Settings → AI summaries and the brief opens with two or three sentences written
+by Claude (`claude-opus-5`, over raw HTTPS to `v1/messages` — there is no Swift
+SDK) saying what just happened. What is sent is exactly what the digest already
+shows: the headlines, their source names, their ages. No article bodies, no
+reading history. A summary regenerates only when the headline set actually
+changes *and* the last one is at least five minutes old — the input is hashed
+(`SummaryStore.inputKey`) so a refresh that reorders the same five headlines
+does not bill. The key lives in the Keychain, `ThisDeviceOnly`, same as the
+Steam key; a failed or keyless request degrades to the plain digest, never to
+an error screen.
 
 ## Markets data
 
