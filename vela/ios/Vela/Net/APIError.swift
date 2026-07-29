@@ -14,6 +14,11 @@ enum APIError: Error, Equatable {
     case malformedResponse
     case noInstance
     case cancelled
+    /// No YouTube API key has been entered yet.
+    case missingAPIKey
+    /// The key's daily quota is spent. Distinct from `rateLimited`: this one
+    /// does not clear by waiting a moment, it clears at midnight Pacific.
+    case quotaExceeded
 
     var message: String {
         switch self {
@@ -35,14 +40,21 @@ enum APIError: Error, Equatable {
             return "Choose an instance first."
         case .cancelled:
             return "Cancelled."
+        case .missingAPIKey:
+            return "Add a YouTube API key in Settings to browse YouTube."
+        case .quotaExceeded:
+            return "This API key's daily quota is spent. It resets at midnight Pacific."
         }
     }
 
     /// False where a Retry button would just fail the same way.
     var isRetryable: Bool {
         switch self {
-        case .notFound, .cancelled, .noInstance, .unauthorized: return false
-        default: return true
+        case .notFound, .cancelled, .noInstance, .unauthorized,
+             .missingAPIKey, .quotaExceeded:
+            return false
+        default:
+            return true
         }
     }
 

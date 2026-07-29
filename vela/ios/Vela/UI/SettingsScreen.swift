@@ -5,14 +5,17 @@ struct SettingsScreen: View {
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var downloads: DownloadManager
+    @EnvironmentObject private var keys: APIKeyStatus
 
     @State private var showingSignIn = false
     @State private var showingInstancePicker = false
+    @State private var showingAPIKey = false
     @State private var cacheCleared = false
 
     var body: some View {
         NavigationStack {
             Form {
+                youTubeSection
                 accountSection
                 instanceSection
 
@@ -80,6 +83,50 @@ struct SettingsScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingSignIn) { SignInSheet() }
             .sheet(isPresented: $showingInstancePicker) { InstancePickerSheet() }
+            .sheet(isPresented: $showingAPIKey) { APIKeySheet() }
+            .task { await keys.refreshQuota() }
+        }
+    }
+
+    @ViewBuilder
+    private var youTubeSection: some View {
+        Section {
+            Button {
+                showingAPIKey = true
+            } label: {
+                HStack {
+                    Text("API key")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if let suffix = keys.keySuffix {
+                        Text("••••\(suffix)")
+                            .font(.system(size: 14).monospaced())
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Not set").foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            if keys.hasKey {
+                HStack {
+                    Text("Quota used today")
+                    Spacer()
+                    Text("\(keys.spentUnits) / 10,000")
+                        .font(.system(size: 14).monospacedDigit())
+                        .foregroundStyle(keys.spentUnits > 9_000 ? .orange : .secondary)
+                }
+
+                Picker("Trending region", selection: $settings.trendingRegion) {
+                    ForEach(TrendingRegion.common, id: \.code) { region in
+                        Text(region.name).tag(region.code)
+                    }
+                }
+            }
+        } header: {
+            Text("YouTube")
+        } footer: {
+            Text("YouTube videos play in YouTube's own player, which serves their ads. They can't be downloaded or played in the background — those work on the PeerTube side, where the server provides the file. The quota is counted on this device only, and resets at midnight Pacific.")
         }
     }
 

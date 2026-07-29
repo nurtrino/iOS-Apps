@@ -18,6 +18,7 @@ struct VelaApp: App {
     @StateObject private var auth = AuthStore.shared
     @StateObject private var downloads = DownloadManager.shared
     @StateObject private var player = PlayerEngine.shared
+    @StateObject private var keys = APIKeyStatus.shared
 
     var body: some Scene {
         WindowGroup {
@@ -26,9 +27,15 @@ struct VelaApp: App {
                 .environmentObject(auth)
                 .environmentObject(downloads)
                 .environmentObject(player)
+                .environmentObject(keys)
                 .preferredColorScheme(settings.theme.colorScheme)
                 .task {
-                    await auth.restore()
+                    // Concurrently: the YouTube key and the PeerTube session are
+                    // unrelated, and serialising them delays whichever tab you
+                    // happen to open first.
+                    async let session: Void = auth.restore()
+                    async let apiKey: Void = keys.restore()
+                    _ = await (session, apiKey)
                 }
         }
     }

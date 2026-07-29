@@ -82,6 +82,7 @@ struct DiscoverScreen: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var settings: SettingsStore
     @StateObject private var store = VideoFeedStore(source: .discover)
+    @State private var showingFollowing = false
 
     var body: some View {
         NavigationStack {
@@ -94,6 +95,16 @@ struct DiscoverScreen: View {
             .navigationTitle(auth.instanceConfig?.name ?? auth.instance.host)
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                // Following moved off the tab bar to make room for YouTube.
+                // A sheet rather than a push, because it owns its own stack.
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        showingFollowing = true
+                    } label: {
+                        Image(systemName: "person.2")
+                    }
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Picker("Sort", selection: Binding(
@@ -116,6 +127,7 @@ struct DiscoverScreen: View {
             .navigationDestination(for: String.self) { uuid in
                 VideoDetailScreen(uuid: uuid)
             }
+            .sheet(isPresented: $showingFollowing) { SubscriptionsScreen() }
         }
         // Keyed on the instance: switching servers must refetch, and without an
         // id the task would never re-run.
@@ -127,52 +139,9 @@ struct DiscoverScreen: View {
     }
 }
 
-struct SearchScreen: View {
-
-    @EnvironmentObject private var auth: AuthStore
-    @State private var query = ""
-    @State private var submitted = ""
-    /// Rebuilt per query, because a store's source is fixed at construction.
-    @State private var activeStore: VideoFeedStore?
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if submitted.isEmpty {
-                    EmptyState(
-                        title: "Search",
-                        message: "Find videos across this instance and the ones it federates with.",
-                        systemImage: "magnifyingglass"
-                    )
-                } else if let activeStore {
-                    VideoFeedList(
-                        store: activeStore,
-                        instance: auth.instance,
-                        emptyTitle: "No results",
-                        emptyMessage: "Nothing matched “\(submitted)”."
-                    )
-                }
-            }
-            .navigationTitle("Search")
-            .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $query, prompt: "Search videos")
-            .onSubmit(of: .search) { runSearch() }
-            .navigationDestination(for: String.self) { uuid in
-                VideoDetailScreen(uuid: uuid)
-            }
-        }
-    }
-
-    private func runSearch() {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed != submitted else { return }
-        submitted = trimmed
-        let store = VideoFeedStore(source: .search(trimmed))
-        store.sort = .recent
-        activeStore = store
-        Task { await store.loadIfNeeded() }
-    }
-}
+// PeerTube search now lives in `UnifiedSearchScreen` alongside the YouTube
+// half, as `PeerTubeSearchBody` — it had to lose its own `NavigationStack`,
+// since nesting one inside the search tab's stack breaks every push.
 
 struct SubscriptionsScreen: View {
 

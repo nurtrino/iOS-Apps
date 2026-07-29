@@ -77,6 +77,7 @@ final class SettingsStore: ObservableObject {
         static let includeNSFW = "settings.includeNSFW"
         static let autoplayNext = "settings.autoplayNext"
         static let defaultSort = "settings.defaultSort"
+        static let trendingRegion = "settings.trendingRegion"
     }
 
     private let defaults: UserDefaults
@@ -105,6 +106,13 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(defaultSort.rawValue, forKey: Key.defaultSort) }
     }
 
+    /// Which country's trending chart to show. YouTube's chart is per-region
+    /// and the endpoint requires the code, so there is no "everywhere" option
+    /// to fall back on.
+    @Published var trendingRegion: String {
+        didSet { defaults.set(trendingRegion, forKey: Key.trendingRegion) }
+    }
+
     // See AuthStore: constructed only from the @MainActor App.
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -118,5 +126,10 @@ final class SettingsStore: ObservableObject {
         defaultSort = VideoSort(
             rawValue: defaults.string(forKey: Key.defaultSort) ?? ""
         ) ?? .trending
+        // Falls back to the device's own region rather than a hardcoded US,
+        // which would show the wrong chart to most people.
+        trendingRegion = defaults.string(forKey: Key.trendingRegion)
+            ?? Locale.current.region?.identifier
+            ?? "US"
     }
 }
