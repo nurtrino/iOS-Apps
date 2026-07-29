@@ -164,7 +164,7 @@ is the arrangement that keeps working. RSSHub in Docker is the usual answer:
 
 ```sh
 docker run -d --name rsshub -p 1200:1200 \
-  -e TWITTER_AUTH_TOKEN=<the auth_token cookie from a logged-in X session> \
+  -e TWITTER_AUTH_TOKEN=<auth_token cookie> \
   diygod/rsshub
 ```
 
@@ -174,9 +174,46 @@ your own network defaults to `http` and is permitted to use it —
 private addresses only, leaving it fully in force for the public internet.
 Anything else defaults to `https`.
 
-Both X routes need a logged-in session token, because X blocks the anonymous
-paths these bridges originally used. Use a throwaway account: an automated
-reader on a token is the sort of thing X suspends accounts over.
+### Getting the auth_token
+
+X blocks the anonymous paths these bridges originally used, so the route needs a
+logged-in session cookie. It is a browser cookie, not an API key — there is no
+developer portal involved.
+
+1. **Make a throwaway X account.** Do not use your own. An automated reader
+   running on a session token is the sort of thing X suspends accounts over,
+   and the token is a full session — anyone holding it is logged in as that
+   account.
+2. Log into `x.com` with it in a desktop browser.
+3. Open developer tools — **Application → Cookies → https://x.com** in
+   Chrome or Edge, **Storage → Cookies** in Firefox.
+4. Find the row named **`auth_token`** and copy its Value: about 40 hex
+   characters. That is the whole thing.
+5. **Close the tab. Do not log out.** Logging out invalidates the token
+   server-side and you would have to start over.
+
+Verify the bridge before touching the app:
+
+```sh
+curl -s localhost:1200/twitter/user/Wario64 | head -20
+```
+
+Items back means it works; an error or empty feed means the token was rejected.
+
+The variable takes a comma-separated list, so several throwaway accounts can
+share the rate limit:
+
+```sh
+-e TWITTER_AUTH_TOKEN=token1,token2
+```
+
+Tokens die on logout, on a password change, and on their own after a while, so
+expect to redo this occasionally. When one expires the X sources fall back to
+their backup RSS feeds and say so, rather than going silent.
+
+RSSHub's own configuration is the authority here and has changed before —
+check [its Twitter route docs](https://docs.rsshub.app/routes/social-media#twitter)
+if the variable name has moved on.
 
 If a service mints one opaque feed URL per account rather than a templated one,
 it cannot be a bridge — there is no `{handle}` to substitute. Paste those URLs
