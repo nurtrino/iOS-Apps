@@ -24,7 +24,9 @@ final class AuthStore: ObservableObject {
 
     private let defaults: UserDefaults
 
-    nonisolated init(defaults: UserDefaults = .standard) {
+    // Not `nonisolated`: this assigns main-actor-isolated published state.
+    // Only the App constructs it, and that is already on the main actor.
+    init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         let stored = defaults.string(forKey: Key.instanceHost)
         let candidate = stored.map(Instance.init(host:))

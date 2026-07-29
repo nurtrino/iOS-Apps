@@ -96,7 +96,14 @@ struct DiscoverScreen: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
-                        Picker("Sort", selection: $store.sort) {
+                        Picker("Sort", selection: Binding(
+                            get: { store.sort },
+                            set: { newSort in
+                                guard newSort != store.sort else { return }
+                                store.sort = newSort
+                                Task { await store.reload() }
+                            }
+                        )) {
                             ForEach(VideoSort.allCases) { sort in
                                 Text(sort.title).tag(sort)
                             }
@@ -125,8 +132,7 @@ struct SearchScreen: View {
     @EnvironmentObject private var auth: AuthStore
     @State private var query = ""
     @State private var submitted = ""
-    @StateObject private var store = VideoFeedStore(source: .search(""), sort: .recent)
-    /// Rebuilt per query because the source is fixed at construction.
+    /// Rebuilt per query, because a store's source is fixed at construction.
     @State private var activeStore: VideoFeedStore?
 
     var body: some View {
@@ -161,7 +167,8 @@ struct SearchScreen: View {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed != submitted else { return }
         submitted = trimmed
-        let store = VideoFeedStore(source: .search(trimmed), sort: .recent)
+        let store = VideoFeedStore(source: .search(trimmed))
+        store.sort = .recent
         activeStore = store
         Task { await store.loadIfNeeded() }
     }
@@ -170,7 +177,7 @@ struct SearchScreen: View {
 struct SubscriptionsScreen: View {
 
     @EnvironmentObject private var auth: AuthStore
-    @StateObject private var store = VideoFeedStore(source: .subscriptions, sort: .recent)
+    @StateObject private var store = VideoFeedStore(source: .subscriptions)
 
     var body: some View {
         NavigationStack {
@@ -196,6 +203,7 @@ struct SubscriptionsScreen: View {
         // request is even possible.
         .task(id: auth.user?.username) {
             store.reset()
+            store.sort = .recent
             guard auth.isSignedIn else { return }
             await store.loadIfNeeded()
         }

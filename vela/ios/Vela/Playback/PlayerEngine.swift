@@ -142,17 +142,24 @@ final class PlayerEngine: ObservableObject {
 
     private func observeTime() {
         let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
+        // The callback is delivered on the main queue, but the compiler cannot
+        // know that from the closure's type, so the isolated work hops
+        // explicitly. `MainActor.assumeIsolated` would avoid the hop and is the
+        // better tool — it needs iOS 17, and this app targets 16.
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) {
             [weak self] time in
-            guard let self else { return }
-            self.currentTime = time.seconds.isFinite ? time.seconds : 0
-            if let itemDuration = self.player.currentItem?.duration.seconds,
-               itemDuration.isFinite, itemDuration > 0 {
-                self.duration = itemDuration
+            let seconds = time.seconds.isFinite ? time.seconds : 0
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.currentTime = seconds
+                if let itemDuration = self.player.currentItem?.duration.seconds,
+                   itemDuration.isFinite, itemDuration > 0 {
+                    self.duration = itemDuration
+                }
+                // Cheap enough at 2 Hz, and it keeps the lock-screen scrubber
+                // from drifting away from the real position.
+                self.updateNowPlayingElapsed()
             }
-            // Cheap enough at 2 Hz, and it keeps the lock-screen scrubber from
-            // drifting away from the real position.
-            self.updateNowPlayingElapsed()
         }
     }
 

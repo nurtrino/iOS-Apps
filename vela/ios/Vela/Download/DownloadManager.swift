@@ -59,6 +59,15 @@ final class DownloadManager: NSObject, ObservableObject {
         return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
     }()
 
+    /// Remove and return every pending identifier for a video.
+    private func takePendingIdentifiers(for uuid: String) -> Set<Int> {
+        pendingLock.lock()
+        defer { pendingLock.unlock() }
+        let identifiers = Set(pending.filter { $0.value.uuid == uuid }.map(\.key))
+        identifiers.forEach { pending[$0] = nil }
+        return identifiers
+    }
+
     /// Task identifier to the metadata needed once the bytes land. Held here
     /// because a background task can outlive the process that started it.
     private var pending: [Int: PendingDownload] = [:]
@@ -149,10 +158,10 @@ final class DownloadManager: NSObject, ObservableObject {
         active[uuid] = nil
         Task {
             let tasks = await session.allTasks
-            pendingLock.lock()
-            let identifiers = pending.filter { $0.value.uuid == uuid }.map(\.key)
-            identifiers.forEach { pending[$0] = nil }
-            pendingLock.unlock()
+            // Locking happens inside a synchronous helper: taking a lock
+            // directly in an async function risks holding it across a
+            // suspension, which is why the compiler rejects it outright.
+            let identifiers = takePendingIdentifiers(for: uuid)
             for task in tasks where identifiers.contains(task.taskIdentifier) {
                 task.cancel()
             }
@@ -171,6 +180,17 @@ final class DownloadManager: NSObject, ObservableObject {
         library.forEach(OfflineLibrary.removeFiles)
         library = []
         OfflineLibrary.saveManifest(library)
+    }
+
+    /// Fetch and store the poster frame, returning its filename.
+    private static func storeThumbnail(from url: URL?, uuid: String,
+                                       into directory: URL) async -> String? {
+        guard let url,
+              let image = try? await ImageLoader.shared.image(for: url),
+              let data = image.jpegData(compressionQuality: 0.8) else { return nil }
+        let filename = "\(uuid).jpg"
+        try? data.write(to: directory.appendingPathComponent(filename), options: .atomic)
+        return filename
     }
 
     /// After a cold launch the system may still be running transfers from a
@@ -254,15 +274,12 @@ extension DownloadManager: URLSessionDownloadDelegate {
         Task { [weak self] in
             guard let self else { return }
             // Keep the poster frame beside the video so the offline library
-            // renders with no network at all.
-            var thumbnailFilename: String?
-            if let thumbnailURL = entry.thumbnailURL,
-               let image = try? await ImageLoader.shared.image(for: thumbnailURL),
-               let data = image.jpegData(compressionQuality: 0.8) {
-                let filename = "\(entry.uuid).jpg"
-                try? data.write(to: mediaDirectory.appendingPathComponent(filename), options: .atomic)
-                thumbnailFilename = filename
-            }
+            // renders with no network at all. Computed into a `let` because a
+            // `var` mutated here and read inside the MainActor hop below is a
+            // capture crossing a concurrency boundary.
+            let thumbnailFilename = await Self.storeThumbnail(
+                from: entry.thumbnailURL, uuid: entry.uuid, into: mediaDirectory
+            )
 
             await MainActor.run {
                 let downloaded = DownloadedVideo(

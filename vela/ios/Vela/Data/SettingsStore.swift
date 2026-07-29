@@ -105,7 +105,8 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(defaultSort.rawValue, forKey: Key.defaultSort) }
     }
 
-    nonisolated init(defaults: UserDefaults = .standard) {
+    // See AuthStore: constructed only from the @MainActor App.
+    init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         theme = AppTheme(rawValue: defaults.string(forKey: Key.theme) ?? "") ?? .dark
         downloadQuality = DownloadQuality(

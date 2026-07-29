@@ -19,12 +19,10 @@ final class VideoFeedStore: ObservableObject {
     @Published private(set) var phase: LoadPhase = .idle
     @Published private(set) var videos: [Video] = []
     @Published private(set) var total = 0
-    @Published var sort: VideoSort {
-        didSet {
-            guard oldValue != sort else { return }
-            Task { await reload() }
-        }
-    }
+    /// Changing this does not reload on its own. An implicit reload from a
+    /// `didSet` races the explicit `loadIfNeeded` that every screen already
+    /// does on appear, and the two fire two requests for one screen.
+    @Published var sort: VideoSort = .trending
 
     private static let pageSize = 24
     /// Guards against duplicates, which federation makes routine: the same
@@ -34,9 +32,12 @@ final class VideoFeedStore: ObservableObject {
 
     private var hasMore: Bool { videos.count < total }
 
-    nonisolated init(source: FeedSource, sort: VideoSort = .trending) {
+    /// `nonisolated` because a SwiftUI View's property initialiser is not
+    /// main-actor-isolated. It therefore assigns only `source`, which is a
+    /// plain `let`; `sort` keeps its default and is set from an isolated
+    /// context afterwards.
+    nonisolated init(source: FeedSource) {
         self.source = source
-        self.sort = sort
     }
 
     func loadIfNeeded() async {
