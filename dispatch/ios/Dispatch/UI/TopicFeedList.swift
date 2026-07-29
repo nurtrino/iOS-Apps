@@ -93,7 +93,14 @@ struct TopicFeedList<Header: View>: View {
            let link = article.link {
             Button {
                 if settings.markReadOnOpen { read.markRead(article) }
-                webLink = WebLink(url: link)
+                // Resolved rather than opened directly: for an aggregator the
+                // link in the feed is a stub page, and the article is one hop
+                // further on. Cached, so this is instant after the first tap.
+                Task {
+                    let destination = await LinkResolver.shared.destination(for: article,
+                                                                            source: source)
+                    webLink = WebLink(url: destination ?? link)
+                }
             } label: {
                 content
             }

@@ -116,6 +116,12 @@ struct Source: Identifiable, Codable, Hashable {
     /// to the page turns two taps and a dead end into one tap.
     var prefersWebPage: Bool
 
+    /// Follow the item's permalink through to the article it links to.
+    ///
+    /// Only meaningful for an aggregator, whose permalink is a stub page
+    /// wrapping somebody else's link. See `LinkResolver`.
+    var resolvesOutboundLink: Bool
+
     var isEnabled: Bool
     /// Built-in sources can be disabled and edited but not deleted, so a bad
     /// edit is always one "Reset" away from working again.
@@ -131,6 +137,7 @@ struct Source: Identifiable, Codable, Hashable {
          fallbackFeeds: [String] = [],
          style: SourceStyle = .article,
          prefersWebPage: Bool = false,
+         resolvesOutboundLink: Bool = false,
          isEnabled: Bool = true,
          isBuiltIn: Bool = false) {
         self.id = id
@@ -143,6 +150,7 @@ struct Source: Identifiable, Codable, Hashable {
         self.fallbackFeeds = fallbackFeeds
         self.style = style
         self.prefersWebPage = prefersWebPage
+        self.resolvesOutboundLink = resolvesOutboundLink
         self.isEnabled = isEnabled
         self.isBuiltIn = isBuiltIn
     }
@@ -188,6 +196,11 @@ struct Source: Identifiable, Codable, Hashable {
             prefersWebPage = stored
         } else {
             prefersWebPage = SourceCatalog.default(withID: id)?.prefersWebPage ?? false
+        }
+        if let stored = try? container.decode(Bool.self, forKey: .resolvesOutboundLink) {
+            resolvesOutboundLink = stored
+        } else {
+            resolvesOutboundLink = SourceCatalog.default(withID: id)?.resolvesOutboundLink ?? false
         }
     }
 }
@@ -247,6 +260,7 @@ enum SourceCatalog {
             fallbackFeeds: ["https://citizenfreepress.com/feed/rss/"],
             style: .wire,
             prefersWebPage: true,
+            resolvesOutboundLink: true,
             isBuiltIn: true
         ),
 

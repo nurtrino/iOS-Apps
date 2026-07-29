@@ -74,7 +74,14 @@ struct SourceFeedScreen: View {
            let link = article.link {
             Button {
                 if settings.markReadOnOpen { read.markRead(article) }
-                webLink = WebLink(url: link)
+                // Resolved rather than opened directly: for an aggregator the
+                // link in the feed is a stub page, and the article is one hop
+                // further on. Cached, so this is instant after the first tap.
+                Task {
+                    let destination = await LinkResolver.shared.destination(for: article,
+                                                                            source: source)
+                    webLink = WebLink(url: destination ?? link)
+                }
             } label: {
                 content
             }
@@ -265,28 +272,36 @@ private struct WirePostRow: View {
     let isRead: Bool
 
     var body: some View {
+        // The timestamp sits *under* the text rather than beside it. A
+        // frontline post is a paragraph, not a headline, and putting the age in
+        // the same row took a chunk of width off every line of it — two
+        // truncated lines where three full ones fit.
         HStack(alignment: .top, spacing: 9) {
             Circle()
                 .fill(isRead ? Color.clear : TopicTheme.accent(.war))
                 .frame(width: 5, height: 5)
-                .padding(.top, 5)
+                .padding(.top, 6)
 
-            Text(article.displayTitle)
-                .font(.system(size: 13, weight: isRead ? .regular : .medium))
-                .foregroundStyle(isRead ? .secondary : .primary)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(article.displayTitle)
+                    .font(.system(size: 14, weight: isRead ? .regular : .medium))
+                    .foregroundStyle(isRead ? .secondary : .primary)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+                    // Without this the row collapses the text to one line
+                    // inside a List section header.
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-            if let age = article.published?.feedAge {
-                Text(age)
-                    .font(.system(size: 10).monospacedDigit())
-                    .foregroundStyle(.tertiary)
-                    .padding(.top, 1)
+                if let age = article.published?.feedAge {
+                    Text(age)
+                        .font(.system(size: 10).monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
     }
 }

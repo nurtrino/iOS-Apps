@@ -359,11 +359,16 @@ installing.
 - **iOS 16 and later.** Deployment target 16.0, no third-party dependencies.
 - **Search is local.** It filters the stories already on the device and says how
   many that is. None of these sources offers a search API worth using.
-- **A link aggregator opens the web page**, not the reader. Citizen Free Press
-  ships with this on: its feed items are pointers to somebody else's article
-  with an empty description, so the reader had nothing to render and showed a
-  stub with a button on it. Any source can be switched either way in
+- **A link aggregator opens the linked article**, not the reader and not its own
+  permalink. Citizen Free Press ships with both flags on: its items are pointers,
+  and its permalink is a stub page — a headline with a "Go To Article" link under
+  it — so stopping there is a dead end with an extra tap. The outbound anchor is
+  taken from the feed where it is present and fetched from the permalink on tap
+  where it is not, cached either way. Both flags are switchable per source in
   More › Sources.
+- **A source served from a backup feed says whose article it is.** Without an X
+  bridge, Wario64's row is filled by PC Gamer, and badging that "WARIO64" is
+  simply false — the row carries the host that actually answered.
 - **Read state is capped** at 8,000 articles, oldest dropped first. Unbounded, it
   only ever grows.
 - **Saved articles keep their own copy** of the text. Feeds roll off after twenty

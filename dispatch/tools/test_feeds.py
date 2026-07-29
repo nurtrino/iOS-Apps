@@ -29,6 +29,7 @@ from feed_reference import (  # noqa: E402
     balanced_div, parse_telegram, normalize_channel, normalize_handle,
     steam_html, parse_date, replacement, last_attribute_value,
     load_lexicon, classify, normalise, is_local_host, normalized_host,
+    links_in, outbound_link,
 )
 
 FAILURES = []
@@ -670,6 +671,77 @@ check("an explicit scheme is respected",
 
 check("a trailing slash is dropped",
       normalized_host("https://nitter.example.com/"), "https://nitter.example.com")
+
+
+# --- Following an aggregator's link -----------------------------------------
+#
+# A link aggregator's permalink is a stub: a headline, a "Go To Article" anchor,
+# and share buttons. Opening it lands on the stub rather than the story, which
+# is what the reader was doing. The anchor that matters has to be picked out of
+# the ones that do not.
+
+CFP_STUB = """
+<h1>Watch Fauci invoke 5th amendment.</h1>
+<p><a href="https://www.youtube.com/watch?v=abc123">Go To Article -- youtube.com</a></p>
+<p><em>Posted by Kane on July 29, 2026 10:24 am</em></p>
+<p><a href="https://citizenfreepress.com/">NEWS JUNKIES -- CHECK OUT OUR HOMEPAGE</a></p>
+<div>Share:
+  <a href="https://www.facebook.com/sharer.php?u=https://citizenfreepress.com/x/">Facebook</a>
+  <a href="https://twitter.com/intent/tweet?url=https://citizenfreepress.com/x/">Twitter</a>
+  <a href="mailto:?subject=Watch%20Fauci">Email</a>
+</div>
+<p><a href="https://citizenfreepress.com/">&lt; CITIZEN FREE PRESS -- HOMEPAGE</a></p>
+"""
+
+check("the outbound article wins over the homepage and the share buttons",
+      outbound_link(CFP_STUB, "citizenfreepress.com"),
+      "https://www.youtube.com/watch?v=abc123")
+
+check("anchors are read with their text",
+      links_in('<a href="/x">Go To Article -- youtube.com</a>')[0][1],
+      "Go To Article -- youtube.com")
+
+check("a same-host link is never the destination",
+      outbound_link('<a href="https://citizenfreepress.com/other/">More</a>',
+                    "citizenfreepress.com"),
+      None)
+
+check("www does not count as a different host",
+      outbound_link('<a href="https://www.citizenfreepress.com/x/">More</a>',
+                    "citizenfreepress.com"),
+      None)
+
+check("a facebook share link is not the destination",
+      outbound_link('<a href="https://www.facebook.com/sharer.php?u=x">Share</a>',
+                    "citizenfreepress.com"),
+      None)
+
+check("mailto is not the destination",
+      outbound_link('<a href="mailto:someone@example.com">Email</a>', "citizenfreepress.com"),
+      None)
+
+# Position alone is not enough: aggregators put a site nav link above the story
+# often enough that the label has to win when it is present.
+check("the labelled link beats an earlier unlabelled one",
+      outbound_link('<a href="https://ads.example.com/promo">Sponsored</a>'
+                    '<a href="https://apnews.com/story">Go To Article -- apnews.com</a>',
+                    "citizenfreepress.com"),
+      "https://apnews.com/story")
+
+check("an unlabelled offsite link is used when nothing is labelled",
+      outbound_link('<a href="https://apnews.com/story">The story</a>', "citizenfreepress.com"),
+      "https://apnews.com/story")
+
+check("no links at all resolves to nothing",
+      outbound_link("<p>Just text</p>", "citizenfreepress.com"), None)
+
+# "<a" must not match "<article", or every semantic wrapper becomes a link.
+check("an article tag is not mistaken for an anchor",
+      len(links_in("<article><p>text</p></article>")), 0)
+
+check("an unterminated anchor still yields its href",
+      links_in('<a href="https://example.com/x">no closing tag')[0][0],
+      "https://example.com/x")
 
 
 # --- Report -----------------------------------------------------------------

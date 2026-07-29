@@ -24,7 +24,12 @@ struct Article: Identifiable, Hashable, Codable {
     let summary: String
     /// The original markup, kept for the in-app reader to lay out properly.
     let bodyHTML: String?
-    let link: URL?
+    /// Where the story lives.
+    ///
+    /// A `var` because an aggregator's feed gives its own permalink here, and
+    /// the destination it points at is better — see `LinkResolver`. The id is
+    /// derived before any rewrite, so identity stays put.
+    var link: URL?
     let imageURL: URL?
     let author: String?
     let published: Date?

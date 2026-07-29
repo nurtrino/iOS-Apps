@@ -306,6 +306,89 @@ enum HTMLText {
         return nil
     }
 
+    /// Every link in a block of markup, with the text it was written on.
+    static func links(in html: String, relativeTo base: URL? = nil) -> [(url: URL, text: String)] {
+        var found: [(URL, String)] = []
+        var remainder = Substring(html)
+
+        while let open = remainder.range(of: "<a", options: .caseInsensitive) {
+            // "<a" must be the whole tag name, or "<article" matches.
+            let after = open.upperBound
+            guard after < remainder.endIndex,
+                  !(remainder[after].isLetter || remainder[after].isNumber) else {
+                remainder = remainder[after...]
+                continue
+            }
+            guard let close = remainder[after...].firstIndex(of: ">") else { break }
+
+            let tag = remainder[after..<close]
+            let rest = remainder[remainder.index(after: close)...]
+
+            // The anchor text runs to the closing tag; an unterminated anchor
+            // just yields empty text rather than losing the href.
+            var text = ""
+            if let end = rest.range(of: "</a", options: .caseInsensitive) {
+                text = plainText(from: String(rest[rest.startIndex..<end.lowerBound]))
+            }
+
+            if let href = attributeValue("href", in: tag),
+               let url = URL(string: href.trimmingCharacters(in: .whitespacesAndNewlines),
+                             relativeTo: base)?.absoluteURL {
+                found.append((url, text))
+            }
+            remainder = rest
+        }
+        return found
+    }
+
+    /// The link that leaves the site — what an aggregator's post is actually
+    /// pointing at.
+    ///
+    /// A link aggregator's feed item is a pointer: its own permalink is a stub
+    /// page whose only real content is an anchor to somebody else's article.
+    /// Opening the permalink shows the stub, which is what the reader was doing
+    /// wrong. This finds the anchor that matters.
+    ///
+    /// "Go to article" is preferred when it is there — most aggregators label
+    /// the link that way and it is a far stronger signal than position — with
+    /// the first genuinely off-site link as the fallback.
+    static func outboundLink(in html: String,
+                             relativeTo base: URL? = nil,
+                             excludingHost host: String?) -> URL? {
+        let home = normalisedHost(host)
+        let candidates = links(in: html, relativeTo: base).filter { link, _ in
+            guard let scheme = link.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https" else { return false }
+            guard normalisedHost(link.host) != home else { return false }
+            return !isShareLink(link)
+        }
+
+        if let labelled = candidates.first(where: { _, text in
+            let lowered = text.lowercased()
+            return lowered.contains("go to article") || lowered.contains("read the full")
+                || lowered.contains("read more at") || lowered.contains("source:")
+        }) {
+            return labelled.url
+        }
+        return candidates.first?.url
+    }
+
+    private static func normalisedHost(_ host: String?) -> String {
+        var value = (host ?? "").lowercased()
+        if value.hasPrefix("www.") { value.removeFirst(4) }
+        return value
+    }
+
+    /// Share buttons and comment anchors, which are off-site but not the story.
+    private static func isShareLink(_ url: URL) -> Bool {
+        let text = url.absoluteString.lowercased()
+        for marker in ["sharer", "/intent/", "/share", "share.php", "/submit",
+                       "addtoany", "printfriendly", "whatsapp.com", "/cdn-cgi/"] where text.contains(marker) {
+            return true
+        }
+        return false
+    }
+
     /// An attribute value from a tag body. Handles double quotes, single
     /// quotes and the unquoted form.
     static func attributeValue(_ name: String, in tagBody: Substring) -> String? {

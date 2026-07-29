@@ -990,3 +990,69 @@ def normalized_host(host):
     if lowered.startswith("http://") or lowered.startswith("https://"):
         return text
     return ("http://" if is_local_host(text) else "https://") + text
+
+
+def links_in(html):
+    """Mirrors HTMLText.links. Returns [(href, text), ...]."""
+    found = []
+    remainder = html
+    while True:
+        open_at = remainder.lower().find("<a")
+        if open_at < 0:
+            break
+        after = open_at + 2
+        if after < len(remainder) and remainder[after].isalnum():
+            remainder = remainder[after:]
+            continue
+        close = remainder.find(">", after)
+        if close < 0:
+            break
+        tag = remainder[after:close]
+        rest = remainder[close + 1:]
+
+        text = ""
+        end = rest.lower().find("</a")
+        if end >= 0:
+            text = plain_text(rest[:end])
+
+        href = attribute_value("href", tag)
+        if href:
+            found.append((href.strip(), text))
+        remainder = rest
+    return found
+
+
+SHARE_MARKERS = ("sharer", "/intent/", "/share", "share.php", "/submit",
+                 "addtoany", "printfriendly", "whatsapp.com", "/cdn-cgi/")
+
+LABEL_HINTS = ("go to article", "read the full", "read more at", "source:")
+
+
+def _bare_host(url):
+    host = urlsplit(url).hostname or ""
+    host = host.lower()
+    return host[4:] if host.startswith("www.") else host
+
+
+def outbound_link(html, excluding_host):
+    """Mirrors HTMLText.outboundLink."""
+    home = (excluding_host or "").lower()
+    if home.startswith("www."):
+        home = home[4:]
+
+    candidates = []
+    for href, text in links_in(html):
+        scheme = urlsplit(href).scheme.lower()
+        if scheme not in ("http", "https"):
+            continue
+        if _bare_host(href) == home:
+            continue
+        if any(marker in href.lower() for marker in SHARE_MARKERS):
+            continue
+        candidates.append((href, text))
+
+    for href, text in candidates:
+        lowered = text.lower()
+        if any(hint in lowered for hint in LABEL_HINTS):
+            return href
+    return candidates[0][0] if candidates else None

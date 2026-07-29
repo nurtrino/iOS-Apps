@@ -59,7 +59,17 @@ enum SourceLoader {
                 continue
             }
             do {
-                let articles = try await fetchFeed(url, sourceID: source.id, limit: limit)
+                // A source served from a backup is labelled with the host that
+                // actually answered. A row badged "WARIO64" over a PC Gamer
+                // article is simply wrong, and the advisory line at the top of
+                // the screen is too far away to fix it.
+                let articles = try await fetchFeed(
+                    url,
+                    sourceID: source.id,
+                    limit: limit,
+                    context: index == 0 ? nil : url.host,
+                    resolvesOutbound: source.resolvesOutboundLink
+                )
                 let note = index == 0 ? nil : "Primary feed unreachable — showing \(url.host ?? candidate)."
                 return SourceLoadResult(articles: articles, note: note)
             } catch {
@@ -72,12 +82,31 @@ enum SourceLoader {
     private static func fetchFeed(_ url: URL,
                                   sourceID: String,
                                   limit: Int,
-                                  context: String? = nil) async throws -> [Article] {
+                                  context: String? = nil,
+                                  resolvesOutbound: Bool = false) async throws -> [Article] {
         let data = try await HTTP.shared.feedData(from: url)
         let feed = try FeedParser.parse(data)
-        return feed.items.prefix(limit).map {
+
+        var articles = feed.items.prefix(limit).map {
             $0.article(sourceID: sourceID, siteLink: feed.siteLink, context: context)
         }
+
+        // An aggregator's own description usually carries the outbound anchor.
+        // Taking it here costs nothing and means the common case never needs
+        // the per-tap fetch in `LinkResolver`.
+        if resolvesOutbound {
+            for index in articles.indices {
+                guard let permalink = articles[index].link,
+                      let body = articles[index].bodyHTML,
+                      let outbound = HTMLText.outboundLink(in: body,
+                                                           relativeTo: permalink,
+                                                           excludingHost: permalink.host)
+                else { continue }
+                await LinkResolver.shared.remember(outbound, for: permalink)
+                articles[index].link = outbound
+            }
+        }
+        return articles
     }
 
     // MARK: - X
@@ -105,7 +134,11 @@ enum SourceLoader {
         for candidate in fallbacks {
             guard let url = URL(string: candidate) else { continue }
             do {
-                let articles = try await fetchFeed(url, sourceID: source.id, limit: limit)
+                // Same reasoning as above, and it matters more here: without a
+                // bridge these are *always* served from the backup, so every
+                // row would otherwise carry a handle that did not write it.
+                let articles = try await fetchFeed(url, sourceID: source.id,
+                                                   limit: limit, context: url.host)
                 let note = bridge.isConfigured
                     ? "The X bridge did not answer — showing \(url.host ?? "the site feed") instead."
                     : "No X bridge configured — showing \(url.host ?? "the site feed") instead."

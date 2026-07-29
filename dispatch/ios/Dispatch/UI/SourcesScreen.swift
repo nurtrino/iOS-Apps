@@ -189,6 +189,8 @@ struct SourceEditor: View {
 
                 Toggle("Open the web page", isOn: $source.prefersWebPage)
 
+                Toggle("Follow to the linked article", isOn: $source.resolvesOutboundLink)
+
                 Toggle("Enabled", isOn: $source.isEnabled)
             } header: {
                 Text("Filing")
@@ -200,9 +202,13 @@ struct SourceEditor: View {
                          : "Each story is scored against the War, Politics and Markets vocabularies "
                            + "and filed by whichever wins. “Usually about” breaks ties.")
 
-                    Text("“Open the web page” skips the reader. Turn it on for a link aggregator, "
+                    Text("“Open the web page” skips the reader — right for a link aggregator, "
                          + "whose items are pointers to somebody else's article rather than "
-                         + "articles of their own — the reader has nothing to show for those.")
+                         + "articles of their own.")
+
+                    Text("“Follow to the linked article” goes one hop further, past the "
+                         + "aggregator's own stub page to the article it points at. Without it "
+                         + "you land on a headline with a “Go To Article” link under it.")
                 }
             }
 

@@ -31,6 +31,7 @@
 		1DBA84CDC7609847A0782805 /* HTMLDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 579793137372A165F0C5A133 /* HTMLDocument.swift */; };
 		0372AAF8DE04EF79608F38FE /* HTMLText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F42AE2F5E4384C3D680CEF8 /* HTMLText.swift */; };
 		B38D0D4421E32E29D043D42C /* HTTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DDD50BD6945626EF15B7925 /* HTTP.swift */; };
+		294CEED6F76C120C7E9BACAE /* LinkResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372C70CF44E023EBF1EB2F5F /* LinkResolver.swift */; };
 		59494A8F760057687C45BA25 /* MarketAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6EBA4D2B8CA9EBE1DBC3B70 /* MarketAPI.swift */; };
 		C4D453AB3E9AE9A26A7031F5 /* SourceLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69E4D182702B5DB9EC5C6DE0 /* SourceLoader.swift */; };
 		221625BE514FF404D2FFBBAA /* SteamAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A8A6F5B8DEC1535E64C7A26 /* SteamAPI.swift */; };
@@ -89,6 +90,7 @@
 		579793137372A165F0C5A133 /* HTMLDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLDocument.swift; sourceTree = "<group>"; };
 		0F42AE2F5E4384C3D680CEF8 /* HTMLText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLText.swift; sourceTree = "<group>"; };
 		5DDD50BD6945626EF15B7925 /* HTTP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTP.swift; sourceTree = "<group>"; };
+		372C70CF44E023EBF1EB2F5F /* LinkResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkResolver.swift; sourceTree = "<group>"; };
 		A6EBA4D2B8CA9EBE1DBC3B70 /* MarketAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketAPI.swift; sourceTree = "<group>"; };
 		69E4D182702B5DB9EC5C6DE0 /* SourceLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceLoader.swift; sourceTree = "<group>"; };
 		2A8A6F5B8DEC1535E64C7A26 /* SteamAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SteamAPI.swift; sourceTree = "<group>"; };
@@ -178,6 +180,7 @@
 				579793137372A165F0C5A133 /* HTMLDocument.swift */,
 				0F42AE2F5E4384C3D680CEF8 /* HTMLText.swift */,
 				5DDD50BD6945626EF15B7925 /* HTTP.swift */,
+				372C70CF44E023EBF1EB2F5F /* LinkResolver.swift */,
 				A6EBA4D2B8CA9EBE1DBC3B70 /* MarketAPI.swift */,
 				69E4D182702B5DB9EC5C6DE0 /* SourceLoader.swift */,
 				2A8A6F5B8DEC1535E64C7A26 /* SteamAPI.swift */,
@@ -341,6 +344,7 @@
 				1DBA84CDC7609847A0782805 /* HTMLDocument.swift in Sources */,
 				0372AAF8DE04EF79608F38FE /* HTMLText.swift in Sources */,
 				B38D0D4421E32E29D043D42C /* HTTP.swift in Sources */,
+				294CEED6F76C120C7E9BACAE /* LinkResolver.swift in Sources */,
 				59494A8F760057687C45BA25 /* MarketAPI.swift in Sources */,
 				C4D453AB3E9AE9A26A7031F5 /* SourceLoader.swift in Sources */,
 				221625BE514FF404D2FFBBAA /* SteamAPI.swift in Sources */,
