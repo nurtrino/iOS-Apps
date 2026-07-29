@@ -21,7 +21,7 @@ Not affiliated with 4chan.
 | | |
 | --- | --- |
 | **iOS** | Complete SwiftUI app — catalog, threads, images, watching, filters, settings. Built by CI into an unsigned `.ipa`. |
-| **Android** | Shared pure-logic layers transliterated to Kotlin, with Gradle and CI wired. Compose UI is the follow-up. |
+| **Android** | Shared pure-logic layers transliterated to Kotlin — parser, thread index, lenient model parsing, paced API client — plus a thin Compose catalog screen that exercises the stack end to end. Gradle and CI wired; the full screen set is the follow-up. |
 
 ## How 4chan's API shaped this
 
@@ -123,12 +123,20 @@ script asserts rather than assumes.
 
 ## Distribution
 
-CI publishes an **unsigned** `.ipa` to a rolling `latest` release. Release
-assets, not workflow artifacts — an artifact is wrapped in a second zip and
-can't be downloaded from the GitHub mobile app.
+Both workflows publish to one rolling `latest` release: an **unsigned** `.ipa`
+and a **debug-signed** `.apk`. Release assets, not workflow artifacts — an
+artifact is wrapped in a second zip and can't be downloaded from the GitHub
+mobile app. Because two workflows race to publish, creating the release is
+best-effort and the upload always clobbers.
 
-The build carries no certificates and no secrets, so a fresh clone with zero
-configuration still produces an artifact. Sign it before installing.
+Neither build carries certificates or secrets, so a fresh clone with zero
+configuration still produces something. Sign the `.ipa` before installing.
+
+⚠️ **The Android debug key is regenerated on every CI run**, because runners are
+fresh VMs. Android refuses to update an app whose signing key changed, so each
+update is an uninstall-and-reinstall that loses local data. Anything meant to be
+used over time needs a real keystore supplied via secrets — and an
+update-tracking app like Obtainium only works against a stable key.
 
 ## Known limitations
 
