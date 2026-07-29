@@ -7,6 +7,7 @@ tooling, tests, README — stays inside that app's directory.
 | App | What it is | Status |
 | --- | --- | --- |
 | [`pol-reader/`](pol-reader/) | Unofficial read-only client for 4chan's /pol/, built on the public JSON API. | iOS complete; Android shares the pure-logic layers with a thin Compose screen. |
+| [`vela/`](vela/) | Native client for PeerTube, the open federated video network — offline downloads, background audio, Picture in Picture, sign-in. | iOS. |
 
 ## Layout
 
@@ -16,6 +17,10 @@ pol-reader/
   ios/                  SwiftUI app + generated Xcode project
   android/              Kotlin port + Gradle build
   tools/                project generation, icon generation, tests
+  README.md             the app's own documentation
+vela/
+  ios/                  SwiftUI app + generated Xcode project
+  tools/                project generation, icon generation, prechecks
   README.md             the app's own documentation
 ```
 
