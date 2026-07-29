@@ -85,6 +85,16 @@ final class ThreadStore: ObservableObject {
 
     func replies(to no: Int) -> [Int] { index?.replies(to: no) ?? [] }
 
+    /// Ancestors of a post, but only when the view is actually nesting.
+    ///
+    /// The threaded view uses this to drop the redundant `>>parent` line from
+    /// the top of a reply. In chronological mode that line is the *only* thing
+    /// saying who is being answered, so it has to stay — hence the empty set.
+    func ancestors(of no: Int) -> Set<Int> {
+        guard viewMode == .threaded, let index else { return [] }
+        return Set(index.ancestors(of: no))
+    }
+
     // MARK: - Loading
 
     func load(force: Bool = false) async {

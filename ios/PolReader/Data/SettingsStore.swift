@@ -24,9 +24,12 @@ enum AppTheme: String, CaseIterable, Identifiable {
 
 /// How post images are presented.
 ///
+/// Media loads on sight by default: reading a thread should not be a sequence
+/// of taps to find out what is in it, and a tap is reserved for expanding.
+///
 /// /pol/ is flagged not-worksafe by the API (`ws_board: 0`) and is unmoderated
-/// enough that images are frequently graphic. Blurring by default is the honest
-/// setting for a board like this; it is a tap to reveal, and a switch to change.
+/// enough that images are frequently graphic, so `blur` and `hide` stay
+/// available for anyone who wants them — `hide` skips the download entirely.
 enum ThumbnailMode: String, CaseIterable, Identifiable {
     case show, blur, hide
     var id: String { rawValue }
@@ -35,13 +38,15 @@ enum ThumbnailMode: String, CaseIterable, Identifiable {
         switch self {
         case .show: return "Show"
         case .blur: return "Blur until tapped"
-        case .hide: return "Hide entirely"
+        case .hide: return "Don't load"
         }
     }
 }
 
-/// Chronological is the board's own shape and the default. Threaded is derived
-/// from quotelinks and is genuinely useful on long argument chains.
+/// Threaded is the default: replies are drawn under the post they answer, the
+/// way Reddit and HN do it. The tree is derived from quotelinks, since 4chan
+/// itself is flat. Chronological remains for reading a thread as the board
+/// presents it.
 enum ThreadViewMode: String, CaseIterable, Identifiable {
     case chronological, threaded
     var id: String { rawValue }
@@ -181,9 +186,9 @@ final class SettingsStore: ObservableObject {
         theme = AppTheme(rawValue: defaults.string(forKey: Key.theme) ?? "") ?? .system
         let storedScale = defaults.double(forKey: Key.textScale)
         textScale = storedScale > 0 ? storedScale : 1.0
-        thumbnailMode = ThumbnailMode(rawValue: defaults.string(forKey: Key.thumbnailMode) ?? "") ?? .blur
-        revealSpoilersAutomatically = defaults.bool(forKey: Key.revealSpoilers)
-        threadViewMode = ThreadViewMode(rawValue: defaults.string(forKey: Key.threadViewMode) ?? "") ?? .chronological
+        thumbnailMode = ThumbnailMode(rawValue: defaults.string(forKey: Key.thumbnailMode) ?? "") ?? .show
+        revealSpoilersAutomatically = defaults.object(forKey: Key.revealSpoilers) as? Bool ?? true
+        threadViewMode = ThreadViewMode(rawValue: defaults.string(forKey: Key.threadViewMode) ?? "") ?? .threaded
         catalogLayout = CatalogLayout(rawValue: defaults.string(forKey: Key.catalogLayout) ?? "") ?? .grid
         refreshInterval = RefreshInterval(rawValue: defaults.integer(forKey: Key.refreshInterval)) ?? .thirtySeconds
         useInAppBrowser = defaults.object(forKey: Key.useInAppBrowser) as? Bool ?? true

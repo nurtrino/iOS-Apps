@@ -39,13 +39,13 @@ struct RemoteImage<Placeholder: View>: View {
             failed = true
             return
         }
-        // Reset so a changed URL does not leave the previous image showing
-        // while the new one is in flight.
         if let cached = await ImageLoader.shared.cached(url) {
             image = cached
             failed = false
             return
         }
+        // Reset so a changed URL does not leave the previous image showing
+        // while the new one is in flight.
         image = nil
         failed = false
         do {
@@ -67,51 +67,131 @@ extension RemoteImage where Placeholder == AnyView {
     }
 }
 
-/// A post's thumbnail, honouring the spoiler flag and the reader's image
-/// setting.
+/// A post's attached media, as it appears inline in a list.
 ///
-/// A spoilered or hidden image is never requested at all — not blurred after
-/// the fact — so choosing "Hide entirely" also means the bytes are not fetched.
+/// Media loads on sight. Reading a thread should not be a sequence of taps to
+/// find out what is in it, so the only thing a tap does here is expand — the
+/// blur and hide modes are settings for people who want them, not the default
+/// path.
 struct PostThumbnail: View {
+
+    /// How much room the media takes.
+    enum Layout: Equatable {
+        /// Fixed square, cropped to fill. Used beside a reply's metadata.
+        case square(CGFloat)
+        /// Full available width, height from the real aspect ratio and capped.
+        /// Used for a thread's main image, which is usually the point of it.
+        case fill(maxHeight: CGFloat)
+    }
 
     let board: String
     let attachment: Attachment
     let mode: ThumbnailMode
-    var size: CGFloat = 90
+    var revealSpoilers: Bool = true
+    var layout: Layout = .square(96)
+    /// Pull the original file rather than the CDN thumbnail.
+    ///
+    /// Kept separate from `layout` on purpose: the catalog wants big
+    /// aspect-correct cells but must *not* fetch 150 full-size images to draw
+    /// one screen. Only a thread's own main image earns the full download.
+    var useFullImage: Bool = false
+
     @State private var revealed = false
 
-    private var isConcealed: Bool {
-        if revealed { return false }
-        return mode == .blur || attachment.isSpoiler
+    private var isHidden: Bool { mode == .hide && !revealed }
+
+    private var isBlurred: Bool {
+        guard !revealed else { return false }
+        if mode == .blur { return true }
+        return attachment.isSpoiler && !revealSpoilers
+    }
+
+    private var sourceURL: URL? {
+        if useFullImage, attachment.isDisplayableImage, !attachment.isDeleted {
+            return MediaURL.file(board: board, attachment: attachment)
+        }
+        return MediaURL.thumbnail(board: board, attachment: attachment)
+    }
+
+    private var aspectRatio: Double {
+        attachment.thumbAspectRatio > 0 ? attachment.thumbAspectRatio : 1
+    }
+
+    private var isFill: Bool {
+        if case .fill = layout { return true }
+        return false
     }
 
     var body: some View {
-        Group {
-            if mode == .hide && !revealed {
-                placeholder(systemImage: "eye.slash", label: "Image hidden")
-            } else if attachment.isDeleted {
-                placeholder(systemImage: "trash", label: "File deleted")
-            } else if isConcealed {
-                ZStack {
-                    Color.secondary.opacity(0.18)
-                    VStack(spacing: 4) {
-                        Image(systemName: attachment.isSpoiler ? "eye.slash.circle" : "eye.circle")
-                        Text(attachment.isSpoiler ? "Spoiler" : "Tap")
-                            .font(.caption2)
-                    }
-                    .foregroundStyle(.secondary)
-                }
-            } else {
-                RemoteImage(url: MediaURL.thumbnail(board: board, attachment: attachment))
+        content
+            .clipShape(RoundedRectangle(cornerRadius: isFill ? 10 : 6))
+            .overlay(alignment: .bottomLeading) { badge }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                // A concealed image reveals on the first tap; after that, taps
+                // belong to the parent, which expands it.
+                if isHidden || isBlurred { revealed = true }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if isHidden {
+            sized { placeholder(systemImage: "eye.slash", label: "Not loaded") }
+        } else if attachment.isDeleted {
+            sized { placeholder(systemImage: "trash", label: "File deleted") }
+        } else {
+            switch layout {
+            case .square(let side):
+                RemoteImage(url: sourceURL)
+                    .frame(width: side, height: side)
+                    .blur(radius: isBlurred ? 14 : 0)
+                    .clipped()
+
+            case .fill(let maxHeight):
+                RemoteImage(url: sourceURL, contentMode: .fit)
+                    .aspectRatio(aspectRatio, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .frame(maxHeight: maxHeight)
+                    .blur(radius: isBlurred ? 26 : 0)
             }
         }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if isConcealed || (mode == .hide && !revealed) {
-                revealed = true
+    }
+
+    @ViewBuilder
+    private func sized<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        switch layout {
+        case .square(let side):
+            content().frame(width: side, height: side)
+        case .fill:
+            content().frame(maxWidth: .infinity).frame(height: 140)
+        }
+    }
+
+    /// Video gets a play glyph and its container named, so it is obvious before
+    /// tapping that this is a clip and which format it is.
+    @ViewBuilder
+    private var badge: some View {
+        if attachment.isVideo && !isHidden {
+            HStack(spacing: 3) {
+                Image(systemName: "play.fill")
+                    .font(.system(size: isFill ? 11 : 8))
+                Text(attachment.ext.dropFirst().uppercased())
+                    .font(.system(size: isFill ? 10 : 8, weight: .semibold))
             }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(.black.opacity(0.6))
+            .clipShape(Capsule())
+            .padding(5)
+        } else if isBlurred {
+            Image(systemName: "eye.slash.fill")
+                .font(.system(size: 9))
+                .foregroundStyle(.white)
+                .padding(5)
+                .background(.black.opacity(0.5), in: Circle())
+                .padding(5)
         }
     }
 

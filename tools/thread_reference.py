@@ -33,6 +33,23 @@ class ThreadIndex:
                     continue
                 self.backlinks.setdefault(target, []).append(p["no"])
 
+        # Parent per post, derived once here rather than inside the outline, so
+        # the threaded view can ask "who is this a reply to?" without rebuilding
+        # the tree. See threaded_outline for why "earlier" is load-bearing.
+        self.parents = {}
+        op = self.op
+        if op is not None:
+            for index, p in enumerate(posts):
+                if p["no"] == op["no"]:
+                    continue
+                parent = op["no"]
+                for candidate in self.quotes.get(p["no"], []):
+                    candidate_offset = self.offsets.get(candidate)
+                    if candidate_offset is not None and candidate_offset < index:
+                        parent = candidate
+                        break
+                self.parents[p["no"]] = parent
+
     @property
     def op(self):
         for p in self.posts:
@@ -56,16 +73,10 @@ class ThreadIndex:
             return []
 
         children = {}
-        for index, p in enumerate(self.posts):
+        for p in self.posts:
             if p["no"] == op["no"]:
                 continue
-            parent = op["no"]
-            for candidate in self.quotes.get(p["no"], []):
-                candidate_offset = self.offsets.get(candidate)
-                if candidate_offset is not None and candidate_offset < index:
-                    parent = candidate
-                    break
-            children.setdefault(parent, []).append(p["no"])
+            children.setdefault(self.parents[p["no"]], []).append(p["no"])
 
         outline = []
         stack = [(op["no"], 0)]
@@ -130,4 +141,16 @@ def filtered(nodes, keep):
             i += 1
             while i < len(nodes) and nodes[i][1] > depth:
                 i += 1
+    return out
+
+
+def ancestors_of(index, no):
+    """Every post above `no` in the derived tree, nearest first."""
+    out = []
+    seen = set()
+    current = index.parents.get(no)
+    while current is not None and current not in seen:
+        seen.add(current)
+        out.append(current)
+        current = index.parents.get(current)
     return out

@@ -77,10 +77,17 @@ struct Attachment: Hashable {
 
     var lowercasedExt: String { ext.lowercased() }
 
-    /// WebM is the only video container 4chan accepts, and it is the one
-    /// container iOS will not play natively. The UI offers to open these
-    /// externally rather than presenting a player that cannot work.
+    /// WebM is the bulk of the video on 4chan, and the one container
+    /// AVFoundation cannot decode at any OS version. It is played through
+    /// WebKit instead — see `VideoSupport`.
     var isWebM: Bool { lowercasedExt == ".webm" }
+
+    /// Containers AVFoundation decodes directly, on every supported OS version.
+    var isNativelyPlayable: Bool {
+        [".mp4", ".m4v", ".mov"].contains(lowercasedExt)
+    }
+
+    var isVideo: Bool { isWebM || isNativelyPlayable }
 
     var isAnimatedGIF: Bool { lowercasedExt == ".gif" }
 

@@ -14,6 +14,7 @@
 		6A1144B105442AE2E288F589 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DBD607078213B605590643 /* SettingsStore.swift */; };
 		2E4CF32DDADCFCABA7B947B9 /* ThreadStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7C602DAD1AFF44CE44288D /* ThreadStore.swift */; };
 		EF969B5A09588AB3E0312CF1 /* ImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9C3877C8FD880001250D38B /* ImageLoader.swift */; };
+		D22A620E8E7FE371E347B9B2 /* VideoSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A655187FF8AD54A6ACA630 /* VideoSupport.swift */; };
 		2F15229C60559B888B214507 /* Board.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB91938A64245CA13ED52708 /* Board.swift */; };
 		F915DFDA2AD0C76683BC3FC1 /* Lenient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A67485C270A9964667034B18 /* Lenient.swift */; };
 		AE04BBE9DAC850E084A8108E /* LoadPhase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57AFA43291BAF9186B836B0E /* LoadPhase.swift */; };
@@ -37,6 +38,7 @@
 		CF4BA855141D5184061311B0 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9A714D58463A05EB7CBBF81 /* SettingsScreen.swift */; };
 		B36D4738C87BCC8192FB7242 /* StateViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A2063E102914B1823C6AA7E /* StateViews.swift */; };
 		285995188BF9D79BA915DEC4 /* ThreadScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D921D1695CA4ABC8BCC38E8 /* ThreadScreen.swift */; };
+		87030A829BE6739C5EC26F26 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F01274D1194327B87617499 /* VideoPlayerView.swift */; };
 		70FD0D779D630F8975F8A06E /* WatchedScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E460017CA93275D6518B4679 /* WatchedScreen.swift */; };
 		7D1DBA83F5517888388F38D2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F4520D96AC0EDB42E750BB2B /* Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -51,6 +53,7 @@
 		2E7C602DAD1AFF44CE44288D /* ThreadStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadStore.swift; sourceTree = "<group>"; };
 		12F1C9823B7D241C34392D7F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B9C3877C8FD880001250D38B /* ImageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageLoader.swift; sourceTree = "<group>"; };
+		B9A655187FF8AD54A6ACA630 /* VideoSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSupport.swift; sourceTree = "<group>"; };
 		AB91938A64245CA13ED52708 /* Board.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Board.swift; sourceTree = "<group>"; };
 		A67485C270A9964667034B18 /* Lenient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lenient.swift; sourceTree = "<group>"; };
 		57AFA43291BAF9186B836B0E /* LoadPhase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadPhase.swift; sourceTree = "<group>"; };
@@ -74,6 +77,7 @@
 		E9A714D58463A05EB7CBBF81 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
 		8A2063E102914B1823C6AA7E /* StateViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateViews.swift; sourceTree = "<group>"; };
 		1D921D1695CA4ABC8BCC38E8 /* ThreadScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadScreen.swift; sourceTree = "<group>"; };
+		7F01274D1194327B87617499 /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
 		E460017CA93275D6518B4679 /* WatchedScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchedScreen.swift; sourceTree = "<group>"; };
 		F5BF48AA40CAD7891EB709FC /* PolReader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PolReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -106,6 +110,7 @@
 			isa = PBXGroup;
 			children = (
 				B9C3877C8FD880001250D38B /* ImageLoader.swift */,
+				B9A655187FF8AD54A6ACA630 /* VideoSupport.swift */,
 			);
 			path = Media;
 			sourceTree = "<group>";
@@ -163,6 +168,7 @@
 				E9A714D58463A05EB7CBBF81 /* SettingsScreen.swift */,
 				8A2063E102914B1823C6AA7E /* StateViews.swift */,
 				1D921D1695CA4ABC8BCC38E8 /* ThreadScreen.swift */,
+				7F01274D1194327B87617499 /* VideoPlayerView.swift */,
 				E460017CA93275D6518B4679 /* WatchedScreen.swift */,
 			);
 			path = UI;
@@ -277,6 +283,7 @@
 				6A1144B105442AE2E288F589 /* SettingsStore.swift in Sources */,
 				2E4CF32DDADCFCABA7B947B9 /* ThreadStore.swift in Sources */,
 				EF969B5A09588AB3E0312CF1 /* ImageLoader.swift in Sources */,
+				D22A620E8E7FE371E347B9B2 /* VideoSupport.swift in Sources */,
 				2F15229C60559B888B214507 /* Board.swift in Sources */,
 				F915DFDA2AD0C76683BC3FC1 /* Lenient.swift in Sources */,
 				AE04BBE9DAC850E084A8108E /* LoadPhase.swift in Sources */,
@@ -300,6 +307,7 @@
 				CF4BA855141D5184061311B0 /* SettingsScreen.swift in Sources */,
 				B36D4738C87BCC8192FB7242 /* StateViews.swift in Sources */,
 				285995188BF9D79BA915DEC4 /* ThreadScreen.swift in Sources */,
+				87030A829BE6739C5EC26F26 /* VideoPlayerView.swift in Sources */,
 				70FD0D779D630F8975F8A06E /* WatchedScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

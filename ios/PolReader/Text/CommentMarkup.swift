@@ -597,6 +597,46 @@ enum CommentMarkup {
         }
         return seen
     }
+
+    /// True when this paragraph is nothing but quotelinks aimed at `targets`.
+    ///
+    /// Used by the threaded view. 4chan posts open with `>>123` naming the post
+    /// being answered, because on a flat board that line *is* the addressing
+    /// mechanism. Once a reply is drawn underneath the post it answers, the
+    /// line is pure noise — Reddit and HN don't print "re: parent" above every
+    /// comment.
+    ///
+    /// Only whole-line quotes at an ancestor qualify: `>>123 you're wrong`
+    /// carries real text and stays, and a quote aimed at some *other* post is
+    /// information the nesting does not convey, so it stays too.
+    static func isQuoteOnlyParagraph(_ paragraph: CommentParagraph,
+                                     targeting targets: Set<Int>) -> Bool {
+        let characters = Array(paragraph.text)
+        var covered = [Bool](repeating: false, count: characters.count)
+        var hitTarget = false
+
+        for span in paragraph.spans {
+            guard case .quotelink(let board, _, let post) = span.style else { continue }
+            // Every quotelink on the line must point at an ancestor. A line
+            // that also names some *other* post is carrying information the
+            // nesting cannot show — a reply sits under one parent — so it stays
+            // whole.
+            guard board == nil, targets.contains(post) else { return false }
+            hitTarget = true
+            var index = max(0, span.start)
+            let upper = min(characters.count, span.end)
+            while index < upper {
+                covered[index] = true
+                index += 1
+            }
+        }
+
+        guard hitTarget else { return false }
+        for (index, character) in characters.enumerated() {
+            if !character.isWhitespace && !covered[index] { return false }
+        }
+        return true
+    }
 }
 
 /// Parsed-comment cache.

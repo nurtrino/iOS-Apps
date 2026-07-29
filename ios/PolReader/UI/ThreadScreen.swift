@@ -106,6 +106,7 @@ struct ThreadScreen: View {
                             descendantCount: store.descendantCounts[node.postNo] ?? 0,
                             backlinks: store.replies(to: node.postNo),
                             isNew: store.newPostNumbers.contains(node.postNo),
+                            ancestors: store.ancestors(of: node.postNo),
                             onToggleCollapse: { store.toggleCollapse(node.postNo) },
                             onSelectPost: { scroll(to: $0, using: proxy) },
                             onOpenAttachment: {
@@ -249,15 +250,9 @@ struct ThreadScreen: View {
     }
 
     private func open(attachment: Attachment) {
-        if attachment.isWebM {
-            // iOS will not play WebM, and 4chan serves nothing else for video.
-            // Offering a player that cannot work is worse than sending the
-            // reader somewhere that can.
-            if let url = MediaURL.file(board: route.board, attachment: attachment) {
-                openExternally(url)
-            }
-            return
-        }
+        // Every attachment expands in the same viewer now, video included. The
+        // viewer picks a playback backend and, on the one combination nothing
+        // can decode (WebM below iOS 17.4), offers the browser itself.
         viewedAttachment = ViewedAttachment(attachment: attachment)
     }
 

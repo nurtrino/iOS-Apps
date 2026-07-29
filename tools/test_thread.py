@@ -10,7 +10,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from thread_reference import (  # noqa: E402
-    ThreadIndex, descendant_counts, visible, filtered,
+    ThreadIndex, descendant_counts, visible, filtered, ancestors_of,
 )
 
 FAILURES = []
@@ -194,6 +194,34 @@ check("the flat outline keeps posting order at depth zero",
       t.flat_outline(), [(1, 0), (2, 0), (3, 0)])
 check("collapsing is a no-op on a flat outline",
       visible(t.flat_outline(), {1}), [(1, 0), (2, 0), (3, 0)])
+
+
+# --- Parents and ancestors --------------------------------------------------
+
+t = thread(
+    (1, "op"),
+    (2, quote(1) + "a"),
+    (3, quote(2) + "b"),
+    (4, quote(3) + "c"),
+)
+check("parent of a chain reply", t.parents[3], 2)
+check("parent of a post quoting only the OP", t.parents[2], 1)
+check("the OP has no parent", t.parents.get(1), None)
+check("ancestors run nearest-first up to the OP", ancestors_of(t, 4), [3, 2, 1])
+check("ancestors of a direct OP reply", ancestors_of(t, 2), [1])
+check("ancestors of the OP is empty", ancestors_of(t, 1), [])
+
+t = thread((1, "op"), (2, "no quotes"))
+check("a post quoting nothing parents to the OP", t.parents[2], 1)
+
+t = thread((1, "op"), (2, quote(999) + "quotes a deleted post"))
+check("a post quoting a deleted post parents to the OP", t.parents[2], 1)
+
+# The cycle guard again, from the parents angle: a mutual quote must not make
+# ancestor-walking loop forever.
+t = thread((1, "op"), (2, quote(3) + "x"), (3, quote(2) + "y"))
+check("mutual quoting still terminates when walking ancestors",
+      ancestors_of(t, 3), [2, 1])
 
 
 # --- Report -----------------------------------------------------------------

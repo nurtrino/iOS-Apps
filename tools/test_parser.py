@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from comment_parser_reference import (  # noqa: E402
     parse, extract_quoted_posts, decode_entities,
     Span, ITALIC, BOLD, UNDERLINE, SPOILER, GREENTEXT, DEADLINK, SHIFT_JIS,
-    link, quotelink, boardlink,
+    link, quotelink, boardlink, is_quote_only_paragraph,
 )
 
 FAILURES = []
@@ -298,6 +298,63 @@ check("composite line 3 link", blocks[2].spans,
 check("composite line 4", blocks[3].text, "Read it before replying.")
 check("composite line 4 spoiler", blocks[3].spans, [Span(8, 15, SPOILER)])
 check("composite quoted posts", extract_quoted_posts(sample), [487110000])
+
+
+# --- Redundant parent quotes (threaded view) ---------------------------------
+#
+# Once a reply is drawn underneath the post it answers, the ">>123" line that
+# addressed it is noise. It is only dropped when the paragraph is nothing but
+# quotelinks at an ancestor.
+
+def quote_only(html, targets):
+    ps = paragraphs(html)
+    return [is_quote_only_paragraph(p, set(targets)) for p in ps]
+
+
+check("a lone parent quote is droppable",
+      quote_only('<a href="#p10" class="quotelink">&gt;&gt;10</a>', [10]),
+      [True])
+
+check("two stacked parent quotes are droppable",
+      quote_only(
+          '<a href="#p10" class="quotelink">&gt;&gt;10</a> '
+          '<a href="#p11" class="quotelink">&gt;&gt;11</a>', [10, 11]),
+      [True])
+
+check("a quote followed by real text is kept",
+      quote_only('<a href="#p10" class="quotelink">&gt;&gt;10</a> you are wrong', [10]),
+      [False])
+
+check("a quote at a non-ancestor is kept",
+      quote_only('<a href="#p99" class="quotelink">&gt;&gt;99</a>', [10]),
+      [False])
+
+# Dropping this line would silently lose the fact that the post also answers
+# 99, which the nesting cannot show — it can only sit under one parent.
+check("a line naming an ancestor and a stranger is kept",
+      quote_only(
+          '<a href="#p10" class="quotelink">&gt;&gt;10</a> '
+          '<a href="#p99" class="quotelink">&gt;&gt;99</a>', [10]),
+      [False])
+
+check("a cross-thread quote on the line keeps it",
+      quote_only(
+          '<a href="#p10" class="quotelink">&gt;&gt;10</a> '
+          '<a href="/pol/thread/5#p6" class="quotelink">&gt;&gt;6</a>', [10]),
+      [False])
+
+check("greentext is never droppable",
+      quote_only('<span class="quote">&gt;you</span>', [10]),
+      [False])
+
+check("only the leading quote line is droppable, not the body",
+      quote_only(
+          '<a href="#p10" class="quotelink">&gt;&gt;10</a><br>actual argument here', [10]),
+      [True, False])
+
+check("a deadlink to the parent is not a quotelink and is kept",
+      quote_only('<span class="deadlink">&gt;&gt;10</span>', [10]),
+      [False])
 
 
 # --- Report -----------------------------------------------------------------

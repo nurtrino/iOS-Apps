@@ -40,6 +40,11 @@ struct ThreadIndex {
     /// Post number to the posts that quote it, in posting order.
     let backlinks: [Int: [Int]]
 
+    /// Post number to the post it replies to. Derived once here rather than
+    /// inside the outline, so the threaded view can ask "who is this answering?"
+    /// without rebuilding the tree. The OP has no entry.
+    let parents: [Int: Int]
+
     init(board: String, posts: [Post]) {
         self.board = board
         self.posts = posts
@@ -69,6 +74,26 @@ struct ThreadIndex {
         }
         self.quotes = quotes
         self.backlinks = backlinks
+
+        // A post's parent is the first post it quotes that appears *earlier* in
+        // the thread. Requiring "earlier" is what makes cycles impossible: 4chan
+        // does not stop two posters from quoting each other, and a naive
+        // "first quotelink is the parent" rule builds an infinite loop from it.
+        var parents: [Int: Int] = [:]
+        if let root = posts.first(where: { $0.isOP }) ?? posts.first {
+            parents.reserveCapacity(posts.count)
+            for (index, post) in posts.enumerated() where post.no != root.no {
+                var parent = root.no
+                for candidate in quotes[post.no] ?? [] {
+                    if let candidateOffset = offsets[candidate], candidateOffset < index {
+                        parent = candidate
+                        break
+                    }
+                }
+                parents[post.no] = parent
+            }
+        }
+        self.parents = parents
     }
 
     // MARK: - Lookup
@@ -122,14 +147,8 @@ struct ThreadIndex {
         guard let op else { return [] }
 
         var children: [Int: [Int]] = [:]
-        for (index, post) in posts.enumerated() where post.no != op.no {
-            var parent = op.no
-            for candidate in quotes[post.no] ?? [] {
-                if let candidateOffset = offsets[candidate], candidateOffset < index {
-                    parent = candidate
-                    break
-                }
-            }
+        for post in posts where post.no != op.no {
+            guard let parent = parents[post.no] else { continue }
             children[parent, default: []].append(post.no)
         }
 
@@ -165,6 +184,22 @@ struct ThreadIndex {
     /// The thread as it arrives: flat, chronological, every post at depth zero.
     func flatOutline() -> [ThreadNode] {
         posts.map { ThreadNode(postNo: $0.no, depth: 0) }
+    }
+
+    /// Every post above this one in the derived tree, nearest first.
+    ///
+    /// The `seen` set is belt-and-braces: `parents` is already acyclic by
+    /// construction, but an ancestor walk that can loop is the kind of thing
+    /// that hangs the UI rather than failing loudly.
+    func ancestors(of postNo: Int) -> [Int] {
+        var result: [Int] = []
+        var seen: Set<Int> = []
+        var current = parents[postNo]
+        while let node = current, seen.insert(node).inserted {
+            result.append(node)
+            current = parents[node]
+        }
+        return result
     }
 }
 

@@ -10,6 +10,9 @@ struct PostRow: View {
     let descendantCount: Int
     let backlinks: [Int]
     let isNew: Bool
+    /// Ancestors of this post in the derived tree. Non-empty only in threaded
+    /// mode, where a leading `>>parent` line is redundant with the nesting.
+    let ancestors: Set<Int>
     let onToggleCollapse: () -> Void
     let onSelectPost: (Int) -> Void
     let onOpenAttachment: () -> Void
@@ -17,14 +20,30 @@ struct PostRow: View {
     @EnvironmentObject private var settings: SettingsStore
     @State private var spoilersRevealed = false
 
+    /// The comment with any redundant parent-quote line removed.
+    ///
+    /// On a flat board `>>123` *is* how you address someone. Drawn underneath
+    /// the post it answers, that line says nothing the layout hasn't already
+    /// said — so it goes, exactly as a Reddit or HN reply carries no "re:" line.
+    /// Only whole lines pointing solely at ancestors are dropped; see
+    /// `CommentMarkup.isQuoteOnlyParagraph`.
     private var blocks: [CommentBlock] {
-        CommentParserCache.shared.blocks(for: post.comment)
+        let parsed = CommentParserCache.shared.blocks(for: post.comment)
+        guard !ancestors.isEmpty else { return parsed }
+
+        var remaining = parsed[...]
+        while let first = remaining.first,
+              case .paragraph(let paragraph) = first,
+              CommentMarkup.isQuoteOnlyParagraph(paragraph, targeting: ancestors) {
+            remaining = remaining.dropFirst()
+        }
+        return Array(remaining)
     }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            indentRails
-            VStack(alignment: .leading, spacing: 6) {
+            rails
+            VStack(alignment: .leading, spacing: 7) {
                 header
                 if !isCollapsed {
                     content
@@ -44,23 +63,26 @@ struct PostRow: View {
 
     // MARK: - Indentation
 
-    /// One rail per level, capped — a deep back-and-forth would otherwise
-    /// squeeze the text to nothing on a phone.
-    private var indentRails: some View {
+    /// One rail per level of nesting, capped — an unbounded back-and-forth
+    /// would otherwise squeeze the text to nothing on a phone. The rails are
+    /// tappable, which is the fastest way to collapse a long argument.
+    private var rails: some View {
         HStack(spacing: 0) {
             ForEach(0..<node.indentDepth, id: \.self) { level in
                 Rectangle()
                     .fill(railColor(level))
                     .frame(width: 2)
-                    .padding(.trailing, 6)
+                    .padding(.trailing, 8)
+                    .contentShape(Rectangle().inset(by: -4))
+                    .onTapGesture(perform: onToggleCollapse)
             }
         }
     }
 
     private func railColor(_ level: Int) -> Color {
-        let hues: [Double] = [0.55, 0.08, 0.33, 0.78, 0.14, 0.62, 0.90, 0.45]
-        return Color(hue: hues[level % hues.count], saturation: 0.45, brightness: 0.7)
-            .opacity(0.55)
+        let hues: [Double] = [0.30, 0.55, 0.08, 0.78, 0.14, 0.62, 0.90, 0.45]
+        return Color(hue: hues[level % hues.count], saturation: 0.42, brightness: 0.72)
+            .opacity(0.5)
     }
 
     // MARK: - Header
@@ -70,13 +92,11 @@ struct PostRow: View {
     private var header: some View {
         Button(action: onToggleCollapse) {
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    if post.isOP, let subject = post.subject {
-                        Text(subject)
-                            .font(.system(size: 15 * settings.textScale, weight: .semibold))
-                            .foregroundStyle(Palette.accent)
-                            .lineLimit(2)
-                    }
+                if post.isOP, let subject = post.subject {
+                    Text(subject)
+                        .font(.system(size: 17 * settings.textScale, weight: .semibold))
+                        .foregroundStyle(Palette.accent)
+                        .lineLimit(3)
                 }
 
                 HStack(spacing: 6) {
@@ -118,10 +138,6 @@ struct PostRow: View {
                         .font(.system(size: 11 * settings.textScale))
                         .foregroundStyle(.secondary)
 
-                    Text("No.\(post.no)")
-                        .font(.system(size: 11 * settings.textScale, design: .monospaced))
-                        .foregroundStyle(.tertiary)
-
                     Spacer(minLength: 0)
 
                     if isCollapsed && descendantCount > 0 {
@@ -148,26 +164,7 @@ struct PostRow: View {
     @ViewBuilder
     private var content: some View {
         if let attachment = post.attachment {
-            HStack(alignment: .top, spacing: 10) {
-                PostThumbnail(board: board, attachment: attachment, mode: settings.thumbnailMode)
-                    .onTapGesture(perform: onOpenAttachment)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(attachment.displayName)
-                        .font(.system(size: 10 * settings.textScale))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Text("\(attachment.dimensionsText) · \(attachment.formattedFileSize)")
-                        .font(.system(size: 10 * settings.textScale))
-                        .foregroundStyle(.tertiary)
-                    if attachment.isWebM {
-                        Text("WebM — opens externally")
-                            .font(.system(size: 10 * settings.textScale))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
+            attachmentView(attachment)
         }
 
         if !blocks.isEmpty {
@@ -188,7 +185,59 @@ struct PostRow: View {
         }
     }
 
+    /// The OP's media is the thread's main image, so it gets rendered large and
+    /// uncropped. Replies keep a compact thumbnail beside their metadata.
+    @ViewBuilder
+    private func attachmentView(_ attachment: Attachment) -> some View {
+        if post.isOP {
+            VStack(alignment: .leading, spacing: 4) {
+                PostThumbnail(
+                    board: board,
+                    attachment: attachment,
+                    mode: settings.thumbnailMode,
+                    revealSpoilers: settings.revealSpoilersAutomatically,
+                    layout: .fill(maxHeight: 420),
+                    useFullImage: true
+                )
+                .onTapGesture(perform: onOpenAttachment)
+
+                attachmentCaption(attachment)
+            }
+        } else {
+            HStack(alignment: .top, spacing: 10) {
+                PostThumbnail(
+                    board: board,
+                    attachment: attachment,
+                    mode: settings.thumbnailMode,
+                    revealSpoilers: settings.revealSpoilersAutomatically,
+                    layout: .square(96)
+                )
+                .onTapGesture(perform: onOpenAttachment)
+
+                attachmentCaption(attachment)
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private func attachmentCaption(_ attachment: Attachment) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(attachment.displayName)
+                .font(.system(size: 10 * settings.textScale))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Text("\(attachment.dimensionsText) · \(attachment.formattedFileSize)")
+                .font(.system(size: 10 * settings.textScale))
+                .foregroundStyle(.tertiary)
+        }
+    }
+
     /// The backlinks the API does not provide: who replied to this post.
+    ///
+    /// In threaded mode these are mostly visible as nesting already, so they
+    /// only earn their space when a reply lives elsewhere in the tree — which
+    /// happens whenever someone quotes several posts at once.
     private var replyLinks: some View {
         HStack(spacing: 8) {
             Image(systemName: "arrowshape.turn.up.left")

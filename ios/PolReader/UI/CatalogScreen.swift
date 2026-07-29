@@ -63,7 +63,7 @@ struct CatalogScreen: View {
         case .grid:
             ScrollView {
                 LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 150), spacing: 10)],
+                    columns: [GridItem(.adaptive(minimum: 172), spacing: 10)],
                     spacing: 10
                 ) {
                     ForEach(catalog.displayedThreads) { thread in
@@ -177,9 +177,13 @@ struct CatalogGridCell: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let attachment = thread.op.attachment {
+                // Aspect-correct and generous: the OP image is what a
+                // reader is actually scanning the catalog for. Still the CDN
+                // thumbnail, though — a screen of full-size files is megabytes.
                 PostThumbnail(board: board, attachment: attachment,
-                              mode: settings.thumbnailMode, size: 150)
-                    .frame(maxWidth: .infinity)
+                              mode: settings.thumbnailMode,
+                              revealSpoilers: settings.revealSpoilersAutomatically,
+                              layout: .fill(maxHeight: 230))
             }
 
             HStack(spacing: 4) {
@@ -232,7 +236,9 @@ struct CatalogListRow: View {
         HStack(alignment: .top, spacing: 10) {
             if let attachment = thread.op.attachment {
                 PostThumbnail(board: board, attachment: attachment,
-                              mode: settings.thumbnailMode, size: 64)
+                              mode: settings.thumbnailMode,
+                              revealSpoilers: settings.revealSpoilersAutomatically,
+                              layout: .square(76))
             }
 
             VStack(alignment: .leading, spacing: 4) {

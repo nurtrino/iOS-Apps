@@ -591,3 +591,37 @@ def extract_quoted_posts(html):
                 if board is None and post not in seen:
                     seen.append(post)
     return seen
+
+
+def is_quote_only_paragraph(paragraph, targets):
+    """True when this paragraph is nothing but quotelinks to `targets`.
+
+    Used by the threaded view. 4chan posts open with ">>123" naming the post
+    being answered, which is the whole addressing mechanism on a flat board.
+    Once a reply is drawn *underneath* the post it answers, that line is pure
+    noise — Reddit and HN don't print "re: parent" above every comment.
+
+    Only dropped when the paragraph is *entirely* quotelinks pointing at an
+    ancestor: a line like ">>123 you're wrong" carries real text and stays, and
+    a quote aimed at some other post is information the nesting doesn't convey.
+    """
+    covered = [False] * len(paragraph.text)
+    hit_target = False
+    for span in paragraph.spans:
+        if not span.style or span.style[0] != "quotelink":
+            continue
+        _, board, _thread, post = span.style
+        # Every quotelink on the line must point at an ancestor. A line that
+        # also names some *other* post is carrying information the nesting
+        # cannot show, so it stays whole.
+        if board is not None or post not in targets:
+            return False
+        hit_target = True
+        for i in range(max(0, span.start), min(len(paragraph.text), span.end)):
+            covered[i] = True
+    if not hit_target:
+        return False
+    for i, ch in enumerate(paragraph.text):
+        if not ch.isspace() and not covered[i]:
+            return False
+    return True

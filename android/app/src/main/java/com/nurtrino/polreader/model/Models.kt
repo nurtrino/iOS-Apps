@@ -95,8 +95,17 @@ data class Attachment(
 ) {
     val displayName: String get() = originalName + ext
 
-    /** The only video container 4chan accepts, and the one Android plays fine. */
+    /**
+     * The bulk of 4chan's video. Android's ExoPlayer and platform decoders
+     * handle VP8/VP9 natively, so unlike iOS this needs no special routing —
+     * see ios/PolReader/Media/VideoSupport.swift for why that side is harder.
+     */
     val isWebM: Boolean get() = ext.equals(".webm", ignoreCase = true)
+
+    val isNativelyPlayable: Boolean
+        get() = ext.lowercase() in listOf(".mp4", ".m4v", ".mov", ".webm")
+
+    val isVideo: Boolean get() = isNativelyPlayable
 
     val isDisplayableImage: Boolean
         get() = ext.lowercase() in listOf(".jpg", ".jpeg", ".png", ".gif")

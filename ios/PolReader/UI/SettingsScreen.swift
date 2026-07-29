@@ -44,12 +44,12 @@ struct SettingsScreen: View {
                     }
                     Toggle("Reveal spoilers automatically", isOn: $settings.revealSpoilersAutomatically)
                 } header: {
-                    Text("Images")
+                    Text("Media")
                 } footer: {
-                    Text("/pol/ is not a worksafe board and is not moderated for graphic content. Hidden and blurred images are not downloaded until you tap them.")
+                    Text("Images and video thumbnails load as you scroll; tapping one expands it. /pol/ is not a worksafe board and is not moderated for graphic content, so \"Blur until tapped\" and \"Don't load\" are here if you want them — only \"Don't load\" skips the download.")
                 }
 
-                Section("Reading") {
+                Section {
                     Picker("Thread view", selection: $settings.threadViewMode) {
                         ForEach(ThreadViewMode.allCases) { mode in
                             Text(mode.title).tag(mode)
@@ -69,6 +69,10 @@ struct SettingsScreen: View {
                     Toggle("Show poster IDs", isOn: $settings.showPosterIDs)
                     Toggle("Show country flags", isOn: $settings.showCountryFlags)
                     Toggle("Mark threads as read", isOn: $settings.markThreadsRead)
+                } header: {
+                    Text("Reading")
+                } footer: {
+                    Text("Threaded nests each reply under the post it answers, working the tree out from >>quotelinks. Chronological shows the thread in the order the board does.")
                 }
 
                 Section {
@@ -124,7 +128,7 @@ struct SettingsScreen: View {
                 } header: {
                     Text("About")
                 } footer: {
-                    Text("An unofficial, read-only reader for 4chan's /pol/, built on the public read-only JSON API. It cannot post, reply or vote — 4chan publishes no write API. Not affiliated with 4chan.")
+                    Text("An unofficial, read-only reader for 4chan's /pol/, built on the public read-only JSON API. It cannot post, reply or vote — 4chan publishes no write API. WebM playback needs iOS 17.4 or later, which is the first release where WebKit could decode it. Not affiliated with 4chan.")
                 }
             }
             .navigationTitle("Settings")
@@ -221,9 +225,11 @@ struct ContentNoticeSheet: View {
                  extreme content. This reader shows what the board contains, \
                  unfiltered except by settings you choose.
 
-                 Images are blurred by default and filters are available in \
-                 Settings. This app is read-only — 4chan publishes no write \
-                 API, so nothing here can post, reply or vote.
+                 Media loads as you scroll. If you would rather it did not, \
+                 Settings can blur it or skip the download entirely, and a \
+                 filter list can hide posts by word or pattern. This app is \
+                 read-only — 4chan publishes no write API, so nothing here \
+                 can post, reply or vote.
                  """)
                 .font(.callout)
                 .foregroundStyle(.secondary)
