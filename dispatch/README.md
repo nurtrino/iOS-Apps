@@ -38,9 +38,28 @@ Three things make it better than a naive keyword match:
 - **Distinct terms, not occurrences.** One repeated word in a long article
   cannot outvote five different signals in a short one.
 
-Below a minimum score nothing is asserted — the story falls back to the
-source's declared default and says so. Every article's reader shows the terms
-that decided it ("Markets — yields, basis points"), which can be turned off in
+Below a minimum score nothing is asserted. What happens then is a per-source
+choice, because the right answer differs by source:
+
+- **ZeroHedge falls back to its default.** It writes about markets even when no
+  term lands, so Markets is a fair guess.
+- **Citizen Free Press drops the story instead.** An aggregator posts dozens of
+  items a day and some of them are a bear in a supermarket. Filing those under
+  Politics does not make them politics, it makes Politics wrong — and invisibly,
+  because a section full of noise looks exactly like a section full of news.
+  Dropped stories are not deleted: they are still on the source's own screen and
+  in Search, just not in a section. The toggle is "Skip stories that fit nowhere"
+  in the source editor.
+
+The threshold is tested against the **evidence alone**, before the source prior is
+added. The prior is a belief about the source, not something the story said, and
+letting it push a total over the line meant one weak word plus "this outlet is
+usually politics" counted as having seen something — which is how "University
+wins college football championship" became a politics story. The prior now only
+breaks ties between topics that both cleared on their own.
+
+Every article's reader shows the terms that decided it ("Markets — yields, basis
+points"), or says "No section" where nothing matched. That can be turned off in
 Settings but is on by default: a heuristic nobody can question is just a black
 box that is sometimes wrong.
 
@@ -51,21 +70,38 @@ exercise is always the table the app ships.
 ### Is it actually working?
 
 Unit tests on the ambiguous words are not the same question as "does this work on
-what these outlets really publish", so there is a **corpus** in `test_feeds.py`:
-33 headlines in the shape and register ZeroHedge and Citizen Free Press actually
-use, scored exactly as the app scores them, asserted against the section each one
-belongs in. CFP is tested title-only and bodyless, because that is what a link
-post is and it is the harder half of the volume.
+what these outlets really publish", so there are two **corpora** in
+`test_feeds.py`, scored exactly as the app scores them:
 
-It started at 30 of 33, and all three failures were the same thing: **no lexicon
-term matched at all**, so the story took the source's default. A carrier
-redeployment filed itself under Markets on a ZeroHedge prior; "Massive explosion
-reported in Riyadh" filed itself under Politics on a CFP one. That failure mode is
-invisible from inside the app — the section just looks thin — so the corpus also
-asserts that **no headline in it reaches its section by fallback**, and sixty
-terms went in to make that true ("carrier strike group", "explosion", bare
-"gold", and the rest). "Blast" is deliberately *not* among them: on these outlets
-it is how "criticises" is spelled.
+- **ZeroHedge, 33 headlines** with bodies, since it syndicates full text.
+- **The aggregator, 73 headlines**, title-only and bodyless because that is what
+  a link post is — including ten that are genuinely none of the three topics and
+  must be *dropped* rather than filed.
+
+The first corpus started at 30 of 33. All three failures were the same thing: **no
+lexicon term matched at all**, so the story took the source's default. A carrier
+redeployment filed itself under Markets; "Massive explosion reported in Riyadh"
+filed itself under Politics.
+
+The aggregator corpus then found the same failure at scale: **24 of 73** matched
+nothing and were being filed under Politics — a section that looked like news and
+was a third guesswork. That is the failure mode you cannot see from inside the
+app, so both corpora also assert that **nothing reaches its section by fallback**.
+
+Roughly 200 terms went in to close it, and every one of them arrived with a second
+meaning attached. Those are pinned too, each from a real misfile found by probing:
+a university winning a championship, a professor finding a beetle, a film that
+bombs at the box office, a hike on the Appalachian Trail, a price war among
+airlines, a union striking a deal, an explosion in demand for used cars, and
+winning gold at the Olympics. "Blast" is deliberately absent from the lexicon
+entirely: on these outlets it is how "criticises" is spelled.
+
+Two mechanisms came out of that. Weights **below** the threshold for terms that
+need company ("strikes", "bombs", "explosion", "university" — each decisive only
+when paired with somewhere or something). And **negative weights**, where a phrase
+cancels the term it contains: `("olympics", -3.0)` in the economics table is what
+keeps "wins gold at the Olympics" out of Markets without giving up "gold" as a
+commodity. Same shape for "price war" and "war of words".
 
 `precheck.py` checks the wiring underneath, too — every source declares a
 `fixedTopic` (which doubles as its fallback), every classified source declares a

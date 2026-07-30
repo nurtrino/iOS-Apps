@@ -2,15 +2,21 @@ import Foundation
 
 /// What the classifier decided, and how sure it was.
 struct TopicVerdict: Equatable {
-    let topic: Topic
+    /// Where the story goes, or **nil** when it goes nowhere.
+    ///
+    /// Nil is the outcome for a source that drops what it cannot place. A link
+    /// aggregator posts a hundred things a day and some of them are a bear in a
+    /// supermarket; filing those under the source's default topic does not make
+    /// them politics, it makes Politics wrong. See `Source.dropsUnsortable`.
+    let topic: Topic?
     let confidence: Double
     /// The terms that carried the decision, strongest first. Shown in the
     /// article's "why is this here?" line, which is the only honest way to ship
     /// a heuristic — if it puts a story in the wrong place you can see exactly
     /// what fooled it.
     let evidence: [String]
-    /// True when nothing scored high enough and the source's own default was
-    /// used instead.
+    /// True when nothing scored high enough: either the source's default was
+    /// used, or — where the source drops what it cannot place — nothing was.
     let isFallback: Bool
 }
 
@@ -92,8 +98,11 @@ enum TopicClassifier {
                                       head: String(term[term.startIndex..<space]),
                                       weight: weight))
             } else {
-                // Keep the strongest weight if a term is listed twice.
-                words[term] = max(words[term] ?? 0, weight)
+                // Keep the strongest weight if a term is listed twice — by
+                // magnitude, because a weight can be negative and `max` would
+                // quietly discard a cancelling term in favour of nothing.
+                if let existing = words[term], abs(existing) >= abs(weight) { continue }
+                words[term] = weight
             }
         }
         return Lexicon(topic: topic, words: words, phrases: phrases)
@@ -104,7 +113,8 @@ enum TopicClassifier {
     static func classify(title: String,
                          body: String,
                          prior: Topic?,
-                         fallback: Topic) -> TopicVerdict {
+                         fallback: Topic,
+                         dropsUnsortable: Bool = false) -> TopicVerdict {
         let titleField = field(title)
         let bodyField = field(bodyPrefix(body))
 
@@ -151,6 +161,18 @@ enum TopicClassifier {
             hits[lexicon.topic] = matched
         }
 
+        // The threshold is tested against the *evidence* alone, before the
+        // prior is added. The prior is a belief about the source, not something
+        // the story said, so letting it push a total over the line meant a
+        // single weak word plus "this outlet is usually politics" counted as
+        // having seen something — which is how "University wins the
+        // championship" became a politics story.
+        let strongest = Topic.classifiable.map { scores[$0] ?? 0 }.max() ?? 0
+        guard strongest >= minimumScore else {
+            return TopicVerdict(topic: dropsUnsortable ? nil : fallback,
+                                confidence: 0, evidence: [], isFallback: true)
+        }
+
         if let prior {
             scores[prior, default: 0] += sourcePriorWeight
         }
@@ -164,8 +186,9 @@ enum TopicClassifier {
                 return left.0.rawValue < right.0.rawValue
             }
 
-        guard let winner = ranked.first, winner.1 >= minimumScore else {
-            return TopicVerdict(topic: fallback, confidence: 0, evidence: [], isFallback: true)
+        guard let winner = ranked.first else {
+            return TopicVerdict(topic: dropsUnsortable ? nil : fallback,
+                                confidence: 0, evidence: [], isFallback: true)
         }
 
         let runnerUp = ranked.count > 1 ? ranked[1].1 : 0
@@ -272,7 +295,8 @@ extension Article {
                 title: displayTitle,
                 body: summary,
                 prior: source.topicPrior,
-                fallback: source.fixedTopic
+                fallback: source.fixedTopic,
+                dropsUnsortable: source.dropsUnsortable
             )
         }
     }

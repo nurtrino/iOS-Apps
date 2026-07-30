@@ -457,7 +457,7 @@ def check_lexicon():
 
         start = source.index(marker) + len(marker)
         block = source[start:source.index("]", start)]
-        terms = re.findall(r'\("([^"]+)",\s*([0-9.]+)\)', block)
+        terms = re.findall(r'\("([^"]+)",\s*(-?[0-9.]+)\)', block)
 
         # A line inside the block that is not a term means something was added
         # in a shape the parser silently skips.

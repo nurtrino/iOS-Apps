@@ -502,6 +502,11 @@ def verdict_of(title, body="", prior=None, fallback="politics"):
     return classify(title, body, prior, fallback, LEXICON)
 
 
+def filed_or_dropped(title, body="", prior="politics", fallback="politics"):
+    """What an aggregator that drops the unplaceable does with a headline."""
+    return classify(title, body, prior, fallback, LEXICON, drops_unsortable=True)[0]
+
+
 check("the lexicon parses out of the Swift", len(LEXICON), 3)
 check_true("every topic has a substantial term list",
            all(len(terms) > 60 for terms in LEXICON.values()))
@@ -603,7 +608,7 @@ check("the headline outweighs the body",
                prior="economics"),
       "war")
 
-_LOW = verdict_of("Man arrested after dispute at a gas station", prior="politics")
+_LOW = verdict_of("Local bakery wins an award for its sourdough", prior="politics")
 check("a story with no signal falls back to the source default", _LOW[0], "politics")
 check("a fallback is reported as one", _LOW[3], True)
 check("a fallback has no confidence", _LOW[1], 0.0)
@@ -618,7 +623,10 @@ check_true("a decisive call cites its evidence", len(_STRONG[2]) > 0)
 check("the source prior cannot override a strong signal",
       topic_of("Artillery duel intensifies along the frontline", prior="economics"), "war")
 
-check("the source prior breaks a genuine tie",
+# This one reads like a tie-break but is really the fallback: "policy" alone is
+# below the threshold, so nothing was asserted and the source default stands. The
+# genuine tie-break is tested further down, where both topics clear on evidence.
+check("a story with only a weak word takes the source default",
       topic_of("Officials weigh new policy", prior="economics", fallback="economics"),
       "economics")
 
@@ -725,7 +733,13 @@ check("no corpus headline needs the fallback", _FELL_BACK, [])
 # the ambiguous readings of them have to stay wrong.
 check("a bare carrier strike group is war",
       topic_of("Carrier strike group ordered to the eastern Mediterranean"), "war")
-check("an explosion is war on a wire", topic_of("Explosion reported near the airport"), "war")
+# A bare explosion is deliberately *below* the threshold. At a weight that
+# cleared it alone, every industrial accident and gas-line fire filed itself
+# under War; paired with somewhere in the theatre it is unambiguous.
+check("an explosion alone is not enough",
+      verdict_of("Explosion reported near the airport")[3], True)
+check("an explosion somewhere in the theatre is war",
+      topic_of("Explosion rocks Beirut suburb"), "war")
 check("bare gold is economics",
       topic_of("Gold jumps to a record", prior="economics"), "economics")
 
@@ -733,6 +747,202 @@ check("bare gold is economics",
 # politician criticising another politician is spelled.
 check("a politician blasting another is not a war story",
       topic_of("Trump blasts Democrats over spending bill", prior="politics"), "politics")
+
+
+# --- The aggregator corpus: sort it or skip it -------------------------------
+#
+# Citizen Free Press is the volume problem. Dozens of link posts a day, title
+# only, five to ten words, and the mix is politics and crime and foreign news
+# *and* a bear in a supermarket. Two things have to be true for that to work: the
+# vocabulary has to reach most of it, and the part it genuinely cannot place has
+# to be dropped rather than filed under the source's default.
+#
+# Before this corpus existed, 24 of these 73 matched nothing at all and were
+# silently filed under Politics. That is the failure the user actually sees: a
+# section that looks like news but is a third guesswork. 114 terms went in.
+#
+# The ten `None` cases are as load-bearing as the rest. They are why bare
+# "grocery" is not an economics term and why "explosion" scores below the
+# threshold on its own.
+
+# (title, expected topic or None for "no section")
+AGGREGATOR_CORPUS = [
+    ("Trump signs executive order on offshore drilling", "politics"),
+    ("Senate confirms new attorney general", "politics"),
+    ("Federal judge blocks deportation flights", "politics"),
+    ("Governor declares state of emergency", "politics"),
+    ("Protests erupt outside the White House", "politics"),
+    ("Democrats introduce gun control bill", "politics"),
+    ("Speaker announces vote on the spending package", "politics"),
+    ("Newsom vetoes housing bill", "politics"),
+    ("DeSantis signs school choice expansion", "politics"),
+    ("Poll: independents souring on both parties", "politics"),
+    ("Mayor announces re-election bid", "politics"),
+    ("State legislature overrides veto", "politics"),
+    ("Supreme Court takes up gun case", "politics"),
+    ("Appeals court reinstates travel restrictions", "politics"),
+    ("Congressman announces retirement", "politics"),
+    ("Whistleblower testifies before committee", "politics"),
+    ("Pentagon nominee grilled at hearing", "politics"),
+    ("Recount ordered in state senate race", "politics"),
+    ("Judge orders release of grand jury records", "politics"),
+
+    # Crime, courts and immigration. There are four sections and no "crime"
+    # among them, so these belong with the law and the people arguing about it.
+    ("Illegal alien charged with murder in Texas", "politics"),
+    ("ICE arrests 200 in weekend sweep", "politics"),
+    ("Border Patrol reports record crossings", "politics"),
+    ("Cartel gunmen kill police chief", "politics"),
+    ("Sanctuary city releases suspect", "politics"),
+    ("Jury convicts former mayor on bribery charges", "politics"),
+    ("Prosecutors seek life sentence", "politics"),
+    ("Sheriff refuses to enforce new gun law", "politics"),
+    ("DOJ opens civil rights investigation", "politics"),
+    ("Fentanyl bust nets 40 pounds", "politics"),
+
+    ("School board votes to remove books", "politics"),
+    ("University president resigns after hearing", "politics"),
+    ("CNN ratings hit new low", "politics"),
+    ("Teachers union sues over new curriculum", "politics"),
+    ("Trans athlete ruling sparks backlash", "politics"),
+    ("Publisher cancels author over tweet", "politics"),
+
+    ("Massive explosion reported in Riyadh", "war"),
+    ("Israel strikes Gaza overnight", "war"),
+    ("Russian missile hits apartment block in Kharkiv", "war"),
+    ("US airstrike kills ISIS commander in Syria", "war"),
+    ("Pentagon confirms troop deployment to the region", "war"),
+    ("Drone swarm intercepted over Kyiv", "war"),
+    ("Iran announces new uranium enrichment site", "war"),
+    ("Netanyahu vows response", "war"),
+    ("North Korea fires missile over Japan", "war"),
+    ("Taiwan scrambles jets as Chinese aircraft cross the line", "war"),
+    ("Convoy ambushed outside Kabul", "war"),
+    ("Putin threatens retaliation", "war"),
+    ("Houthi attack closes shipping lane", "war"),
+    ("Explosion rocks Beirut suburb", "war"),
+
+    ("Gold hits record high", "economics"),
+    ("Fed cuts rates by 25 basis points", "economics"),
+    ("Stocks tumble in worst selloff since April", "economics"),
+    ("Mortgage rate falls below 6%", "economics"),
+    ("Bitcoin crashes", "economics"),
+    ("Layoffs announced at major retailer", "economics"),
+    ("Egg prices spike again", "economics"),
+    ("Gas prices climb for the third week", "economics"),
+    ("Housing market stalls as inventory builds", "economics"),
+    ("Grocery bills up 12% year over year", "economics"),
+    ("Amazon announces 14,000 job cuts", "economics"),
+    ("Dollar slides to two-year low", "economics"),
+    ("Social Security COLA announced", "economics"),
+    ("Credit card debt hits record", "economics"),
+
+    # Genuinely none of the three. Filing these anywhere is worse than dropping
+    # them, and each one guards a term that would have been too greedy.
+    ("Video: bear wanders into a grocery store", None),
+    ("Taylor Swift announces stadium tour", None),
+    ("Chiefs win in overtime thriller", None),
+    ("Watch: cat rescued from storm drain", None),
+    ("Man wins lottery twice in one week", None),
+    ("New study links coffee to longer life", None),
+    ("Photos: northern lights visible across the Midwest", None),
+    ("Actor hospitalized after fall on set", None),
+    ("World's oldest tortoise turns 191", None),
+    ("Recipe: the only pie crust you need", None),
+]
+
+_MISFILED_LINKS = []
+_WRONGLY_DROPPED = []
+_WRONGLY_KEPT = []
+for _title, _want in AGGREGATOR_CORPUS:
+    _got = filed_or_dropped(_title)
+    if _want is None:
+        if _got is not None:
+            _WRONGLY_KEPT.append("%r was filed under %s" % (_title, _got))
+    elif _got is None:
+        _WRONGLY_DROPPED.append("%r should be %s" % (_title, _want))
+    elif _got != _want:
+        _MISFILED_LINKS.append("%r → %s, wanted %s" % (_title, _got, _want))
+
+check("nothing sortable is dropped", _WRONGLY_DROPPED, [])
+check("nothing unsortable is kept", _WRONGLY_KEPT, [])
+check("nothing sortable is misfiled", _MISFILED_LINKS, [])
+check_true("the aggregator corpus is big enough to mean something",
+           len(AGGREGATOR_CORPUS) >= 70)
+check_true("and it is mostly sortable, which is the point",
+           sum(1 for _, want in AGGREGATOR_CORPUS if want) >= 60)
+
+# Dropping is per-source, because it is only right for an aggregator. The same
+# headline on an outlet that writes about markets even when no term lands should
+# still take that outlet's default.
+check("a source that drops returns no topic",
+      classify("Recipe: the only pie crust you need", "", "politics", "politics",
+               LEXICON, drops_unsortable=True)[0], None)
+check("a source that does not drop still falls back",
+      classify("Recipe: the only pie crust you need", "", "economics", "economics",
+               LEXICON, drops_unsortable=False)[0], "economics")
+check("dropping does not touch anything that scored",
+      filed_or_dropped("Fed cuts rates by 25 basis points"), "economics")
+
+
+# --- The other sense of the word --------------------------------------------
+#
+# Every term added for the aggregator brought a second meaning with it, and these
+# are the ones that actually appear on that kind of site. Each was a real misfile
+# found by probing the expanded lexicon, and each fix is either a negative weight
+# (the phrase cancels the term) or a weight below the threshold (the term needs
+# company).
+
+check("winning gold at the Olympics is not a markets story",
+      filed_or_dropped("Man wins gold at the Olympics"), None)
+check("a gold medal is not a markets story",
+      filed_or_dropped("Team USA wins gold medal in Paris"), None)
+check("but gold itself still is",
+      filed_or_dropped("Gold hits record high"), "economics")
+
+check("a war of words is not a war", filed_or_dropped("War of words erupts between senators"),
+      "politics")
+check("a price war is not a war", filed_or_dropped("Price war breaks out among airlines"), None)
+check("a bidding war is not a war", filed_or_dropped("Bidding war for the stadium site"), None)
+check("a culture war is politics", filed_or_dropped("Culture war fight over school library"),
+      "politics")
+
+check("a hike on a trail is not a rate hike",
+      filed_or_dropped("Hikes on the Appalachian Trail get busier"), None)
+check("a rate hike still is", filed_or_dropped("Rate hikes are over, says Powell"), "economics")
+
+check("a film bombing is not a war story",
+      filed_or_dropped("Film bombs at the box office"), None)
+check("bombing a place is", filed_or_dropped("Israel bombs Gaza"), "war")
+
+check("a union striking a deal is not a war story",
+      filed_or_dropped("Union strikes deal with automaker"), None)
+check("striking a place is", filed_or_dropped("Israel strikes Gaza overnight"), "war")
+
+# A university winning a championship was politics until the threshold stopped
+# counting the source prior as evidence — the single biggest fix in this pass.
+check("a university winning a championship is not politics",
+      filed_or_dropped("University wins college football championship"), None)
+check("a professor finding a beetle is not politics",
+      filed_or_dropped("Professor discovers new species of beetle"), None)
+check("waking up to snow is not politics",
+      filed_or_dropped("Woke up to six inches of snow"), None)
+check("an explosion in demand is not a war story",
+      filed_or_dropped("Explosion in demand for used cars"), None)
+
+# The prior may only break a tie between topics that both cleared on evidence.
+check("the prior cannot get a story over the line",
+      verdict_of("Woke up to six inches of snow", prior="politics")[3], True)
+check("the prior still breaks a genuine tie",
+      topic_of("Senators briefed on PPI data", prior="economics", fallback="economics"),
+      "economics")
+check("and the other way round",
+      topic_of("Senators briefed on PPI data", prior="politics", fallback="politics"),
+      "politics")
+
+# Negative weights have to survive the parse and the word/phrase split.
+_NEGATIVE = [term for term, weight in LEXICON["economics"] if weight < 0]
+check_true("negative weights parse out of the Swift", len(_NEGATIVE) >= 3)
 
 
 # --- Normalisation ----------------------------------------------------------

@@ -187,6 +187,10 @@ struct SourceEditor: View {
                     }
                 }
 
+                if source.topicMode == .classified {
+                    Toggle("Skip stories that fit nowhere", isOn: $source.dropsUnsortable)
+                }
+
                 Toggle("Open the web page", isOn: $source.prefersWebPage)
 
                 Toggle("Follow to the linked article", isOn: $source.resolvesOutboundLink)
@@ -209,6 +213,15 @@ struct SourceEditor: View {
                     Text("“Follow to the linked article” goes one hop further, past the "
                          + "aggregator's own stub page to the article it points at. Without it "
                          + "you land on a headline with a “Go To Article” link under it.")
+
+                    if source.topicMode == .classified {
+                        Text("“Skip stories that fit nowhere” drops a story when nothing in it "
+                             + "matched any of the three vocabularies, instead of filing it under "
+                             + "“when unsure”. Right for an aggregator that posts sport and "
+                             + "celebrity next to the news; wrong for an outlet where the default "
+                             + "is a fair guess. Skipped stories are still on this source's own "
+                             + "screen and in Search.")
+                    }
                 }
             }
 
@@ -369,12 +382,21 @@ struct SourceEditor: View {
             // is the fastest way to see whether the filing is sane.
             if source.topicMode == .classified, !result.articles.isEmpty {
                 var counts: [Topic: Int] = [:]
+                var unsorted = 0
                 for article in result.articles {
-                    counts[article.classified(using: source).topic, default: 0] += 1
+                    if let topic = article.classified(using: source).topic {
+                        counts[topic, default: 0] += 1
+                    } else {
+                        unsorted += 1
+                    }
                 }
-                let summary = Topic.classifiable
+                var parts = Topic.classifiable
                     .compactMap { topic in counts[topic].map { "\(topic.title) \($0)" } }
-                    .joined(separator: " · ")
+                // Worth its own number rather than hidden in the total: on an
+                // aggregator this is the count that says whether the vocabulary
+                // is keeping up with what it posts.
+                if unsorted > 0 { parts.append("no section \(unsorted)") }
+                let summary = parts.joined(separator: " · ")
                 if !summary.isEmpty { lines += "\nSorted: " + summary }
             }
             if let newest = result.articles.first {

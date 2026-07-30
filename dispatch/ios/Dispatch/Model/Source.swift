@@ -122,6 +122,19 @@ struct Source: Identifiable, Codable, Hashable {
     /// wrapping somebody else's link. See `LinkResolver`.
     var resolvesOutboundLink: Bool
 
+    /// Drop a story the classifier cannot place, instead of filing it under
+    /// `fixedTopic`.
+    ///
+    /// This is the difference between a general outlet and a link aggregator.
+    /// ZeroHedge writes about markets even when no term lands, so its default is
+    /// a fair guess. Citizen Free Press posts dozens of items a day and a
+    /// fraction of them are a bear in a supermarket — filing those under Politics
+    /// does not make them politics, it makes Politics wrong, and the guess is
+    /// invisible because a section full of noise looks the same as a section
+    /// full of news. Dropped stories are not deleted: they are still on the
+    /// source's own screen and in Search, just not in a topic.
+    var dropsUnsortable: Bool
+
     var isEnabled: Bool
     /// Built-in sources can be disabled and edited but not deleted, so a bad
     /// edit is always one "Reset" away from working again.
@@ -138,6 +151,7 @@ struct Source: Identifiable, Codable, Hashable {
          style: SourceStyle = .article,
          prefersWebPage: Bool = false,
          resolvesOutboundLink: Bool = false,
+         dropsUnsortable: Bool = false,
          isEnabled: Bool = true,
          isBuiltIn: Bool = false) {
         self.id = id
@@ -151,6 +165,7 @@ struct Source: Identifiable, Codable, Hashable {
         self.style = style
         self.prefersWebPage = prefersWebPage
         self.resolvesOutboundLink = resolvesOutboundLink
+        self.dropsUnsortable = dropsUnsortable
         self.isEnabled = isEnabled
         self.isBuiltIn = isBuiltIn
     }
@@ -202,6 +217,11 @@ struct Source: Identifiable, Codable, Hashable {
         } else {
             resolvesOutboundLink = SourceCatalog.default(withID: id)?.resolvesOutboundLink ?? false
         }
+        if let stored = try? container.decode(Bool.self, forKey: .dropsUnsortable) {
+            dropsUnsortable = stored
+        } else {
+            dropsUnsortable = SourceCatalog.default(withID: id)?.dropsUnsortable ?? false
+        }
     }
 }
 
@@ -244,6 +264,7 @@ enum SourceCatalog {
             style: .wire,
             prefersWebPage: true,
             resolvesOutboundLink: true,
+            dropsUnsortable: true,
             isBuiltIn: true
         ),
 

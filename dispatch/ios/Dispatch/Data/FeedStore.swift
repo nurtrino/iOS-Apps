@@ -224,7 +224,11 @@ final class FeedStore: ObservableObject {
 
         for source in sources {
             for article in articlesBySource[source.id] ?? [] {
-                guard verdicts[article.id]?.topic == topic else { continue }
+                // Written out rather than `verdicts[id]?.topic == topic`: the
+                // verdict's topic is itself optional now, and the double
+                // optional that expression produces does not mean what it looks
+                // like it means.
+                guard let verdict = verdicts[article.id], verdict.topic == topic else { continue }
                 // Source order decides which copy of a cross-posted story wins,
                 // and source order is the user's to set.
                 guard seen.insert(article.dedupeKey).inserted else { continue }

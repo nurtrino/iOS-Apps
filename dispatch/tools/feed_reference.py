@@ -858,7 +858,7 @@ MINIMUM_SCORE = 3.0
 DECISIVE_MARGIN = 0.35
 SOURCE_PRIOR_WEIGHT = 1.25
 
-TERM_RE = re.compile(r'\("([^"]+)",\s*([0-9.]+)\)')
+TERM_RE = re.compile(r'\("([^"]+)",\s*(-?[0-9.]+)\)')
 
 
 def load_lexicon(path=LEXICON_PATH):
@@ -881,7 +881,9 @@ def build_lexicon(terms):
         if " " in term:
             phrases.append((term, term.split(" ", 1)[0], weight))
         else:
-            words[term] = max(words.get(term, 0.0), weight)
+            existing = words.get(term)
+            if existing is None or abs(weight) > abs(existing):
+                words[term] = weight
     return words, phrases
 
 
@@ -910,10 +912,12 @@ def tokens(normalised):
     return set(normalised.split(" ")) if normalised else set()
 
 
-def classify(title, body, prior, fallback, tables=None):
+def classify(title, body, prior, fallback, tables=None, drops_unsortable=False):
     """Mirrors TopicClassifier.classify.
 
-    Returns (topic, confidence, evidence, is_fallback).
+    Returns (topic, confidence, evidence, is_fallback). `topic` is None when
+    nothing scored and the source drops what it cannot place, which is how a link
+    aggregator's off-topic posts stay out of the sections entirely.
     """
     tables = tables if tables is not None else load_lexicon()
 
@@ -950,14 +954,16 @@ def classify(title, body, prior, fallback, tables=None):
         scores[topic] = score
         hits[topic] = matched
 
+    # The threshold is tested on evidence alone, before the prior is added — the
+    # prior is a belief about the source, not something the story said.
+    if max(scores.values()) < MINIMUM_SCORE:
+        return (None if drops_unsortable else fallback), 0.0, [], True
+
     if prior:
         scores[prior] = scores.get(prior, 0.0) + SOURCE_PRIOR_WEIGHT
 
     ranked = sorted(scores.items(), key=lambda pair: (-pair[1], pair[0]))
     winner, top = ranked[0]
-
-    if top < MINIMUM_SCORE:
-        return fallback, 0.0, [], True
 
     runner_up = ranked[1][1] if len(ranked) > 1 else 0.0
     margin = (top - runner_up) / top

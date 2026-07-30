@@ -131,27 +131,43 @@ struct ArticleScreen: View {
     @ViewBuilder
     private var sortingLine: some View {
         if settings.showSortingEvidence, let verdict = feed.verdict(for: article) {
-            HStack(spacing: 5) {
-                Image(systemName: verdict.isFallback
-                      ? "questionmark.circle"
-                      : verdict.topic.systemImage)
-                    .font(.system(size: 10, weight: .semibold))
-
-                if verdict.isFallback {
-                    Text("Filed under \(verdict.topic.title) by default")
-                } else if verdict.evidence.isEmpty {
-                    Text("\(verdict.topic.title) — this source only publishes \(verdict.topic.title.lowercased())")
-                } else {
-                    Text("\(verdict.topic.title) — \(verdict.evidence.joined(separator: ", "))")
+            if let topic = verdict.topic {
+                HStack(spacing: 5) {
+                    Image(systemName: verdict.isFallback ? "questionmark.circle" : topic.systemImage)
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(sortingText(verdict, topic: topic))
                 }
+                .font(.system(size: 11))
+                .foregroundStyle(TopicTheme.accent(topic))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(TopicTheme.wash(topic), in: Capsule())
+                .padding(.top, 2)
+            } else {
+                // Reachable only from the source's own screen or Search, since a
+                // story with no topic is in no section — which is the point, but
+                // it should say so rather than looking like a bug.
+                HStack(spacing: 5) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("No section — nothing in this matched War, Politics or Markets")
+                }
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Palette.surface, in: Capsule())
+                .padding(.top, 2)
             }
-            .font(.system(size: 11))
-            .foregroundStyle(TopicTheme.accent(verdict.topic))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(TopicTheme.wash(verdict.topic), in: Capsule())
-            .padding(.top, 2)
         }
+    }
+
+    private func sortingText(_ verdict: TopicVerdict, topic: Topic) -> String {
+        if verdict.isFallback { return "Filed under \(topic.title) by default" }
+        if verdict.evidence.isEmpty {
+            return "\(topic.title) — this source only publishes \(topic.title.lowercased())"
+        }
+        return "\(topic.title) — \(verdict.evidence.joined(separator: ", "))"
     }
 
     @ViewBuilder
