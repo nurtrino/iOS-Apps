@@ -912,12 +912,12 @@ def tokens(normalised):
     return set(normalised.split(" ")) if normalised else set()
 
 
-def classify(title, body, prior, fallback, tables=None, drops_unsortable=False):
+def classify(title, body, prior, fallback, tables=None):
     """Mirrors TopicClassifier.classify.
 
-    Returns (topic, confidence, evidence, is_fallback). `topic` is None when
-    nothing scored and the source drops what it cannot place, which is how a link
-    aggregator's off-topic posts stay out of the sections entirely.
+    Returns (topic, confidence, evidence, is_fallback). A topic is always named:
+    the lexicon falls back to the source's default rather than hiding a story it
+    has no words for. Only the model returns "nowhere" — see `parse_decisions`.
     """
     tables = tables if tables is not None else load_lexicon()
 
@@ -957,7 +957,7 @@ def classify(title, body, prior, fallback, tables=None, drops_unsortable=False):
     # The threshold is tested on evidence alone, before the prior is added — the
     # prior is a belief about the source, not something the story said.
     if max(scores.values()) < MINIMUM_SCORE:
-        return (None if drops_unsortable else fallback), 0.0, [], True
+        return fallback, 0.0, [], True
 
     if prior:
         scores[prior] = scores.get(prior, 0.0) + SOURCE_PRIOR_WEIGHT
@@ -1294,3 +1294,69 @@ def percent_change(new, old):
     if old == 0:
         return 0.0
     return (new / old - 1) * 100
+
+
+# --- Filing with the model --------------------------------------------------
+#
+# The lexicon knows five hundred terms; a wire uses words outside them all day.
+# These mirror the two pure pieces of the API path — the numbered prompt and the
+# tolerant parse of what comes back — because a parser that silently returns
+# nothing is indistinguishable from a model that answered nothing, and both look
+# like stories going missing.
+
+CLASSIFIER_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "ios", "Dispatch", "Net", "ClassifierAPI.swift",
+)
+
+DECISION_WORDS = ("war", "politics", "economics", "gaming", "none")
+
+
+def classifier_constants(path=CLASSIFIER_PATH):
+    """The `static let` constants of ClassifierAPI, as {name: value}."""
+    source = open(path, encoding="utf-8").read()
+    constants = {}
+    for name, text, number in SUMMARY_CONST_RE.findall(source):
+        constants[name] = int(number) if number else text
+    return constants
+
+
+def one_line(title):
+    """Mirrors ClassifierAPI.oneLine."""
+    flattened = title.replace("\n", " ").replace("\r", " ")
+    return " ".join(flattened.split())[:200]
+
+
+def classifier_prompt(titles):
+    """Mirrors ClassifierAPI.prompt — one-based numbering."""
+    return "\n".join("%d. %s" % (index + 1, one_line(title))
+                     for index, title in enumerate(titles))
+
+
+def parse_decisions(text):
+    """Mirrors ClassifierAPI.parse. Returns {line number: word}.
+
+    "none" stays as the string rather than becoming Python's None, so a caller
+    can tell "the model said nowhere" from "the model did not answer".
+    """
+    out = {}
+    for raw in text.split("\n"):
+        line = raw.strip().lower()
+        if not line:
+            continue
+        digits = ""
+        index = 0
+        while index < len(line) and line[index].isdigit():
+            digits += line[index]
+            index += 1
+        if not digits:
+            continue
+        while index < len(line) and line[index] in " .):-\u2013\u2014\t,":
+            index += 1
+        word = ""
+        while index < len(line) and line[index].isalpha():
+            word += line[index]
+            index += 1
+        if word in DECISION_WORDS:
+            out[int(digits)] = word
+    return out

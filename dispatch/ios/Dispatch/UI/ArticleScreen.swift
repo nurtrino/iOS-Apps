@@ -133,7 +133,7 @@ struct ArticleScreen: View {
         if settings.showSortingEvidence, let verdict = feed.verdict(for: article) {
             if let topic = verdict.topic {
                 HStack(spacing: 5) {
-                    Image(systemName: verdict.isFallback ? "questionmark.circle" : topic.systemImage)
+                    Image(systemName: sortingIcon(verdict, topic: topic))
                         .font(.system(size: 10, weight: .semibold))
                     Text(sortingText(verdict, topic: topic))
                 }
@@ -150,7 +150,7 @@ struct ArticleScreen: View {
                 HStack(spacing: 5) {
                     Image(systemName: "tray")
                         .font(.system(size: 10, weight: .semibold))
-                    Text("No section — nothing in this matched War, Politics or Markets")
+                    Text("No section — Claude found nothing here for War, Politics or Markets")
                 }
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
@@ -162,7 +162,13 @@ struct ArticleScreen: View {
         }
     }
 
+    private func sortingIcon(_ verdict: TopicVerdict, topic: Topic) -> String {
+        if verdict.decidedByModel { return "sparkles" }
+        return verdict.isFallback ? "questionmark.circle" : topic.systemImage
+    }
+
     private func sortingText(_ verdict: TopicVerdict, topic: Topic) -> String {
+        if verdict.decidedByModel { return "\(topic.title) — filed by Claude" }
         if verdict.isFallback { return "Filed under \(topic.title) by default" }
         if verdict.evidence.isEmpty {
             return "\(topic.title) — this source only publishes \(topic.title.lowercased())"

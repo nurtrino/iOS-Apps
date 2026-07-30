@@ -7,6 +7,8 @@ struct LoadEnvironment {
     var itemsPerSource: Int
     /// How old a cached feed may be before a non-forced refresh refetches it.
     var staleAfter: TimeInterval
+    /// Whether Claude files stories that come from a general outlet.
+    var sortsWithModel: Bool = false
 }
 
 /// The articles, per source, where each one was filed, and where each source is
@@ -32,10 +34,26 @@ final class FeedStore: ObservableObject {
     /// dozens of times per scroll frame.
     @Published private(set) var verdicts: [String: TopicVerdict] = [:]
 
+    /// What the model decided, by article id, kept forever.
+    ///
+    /// Persisted for one reason: money. A decision costs a fraction of a cent
+    /// once and nothing ever after, and a relaunch that re-filed every cached
+    /// article would pay again for answers it already had.
+    private var modelDecisions: [String: String] = [:]
+
+    /// True while a filing pass is out, so a second refresh does not start one.
+    @Published private(set) var isSorting = false
+
+    private static let decisionsFile = "model-verdicts"
+
     /// Guards against the same source being fetched twice at once, which
     /// happens the moment someone pulls to refresh while the on-appear load is
     /// still running.
     private var inFlight: Set<String> = []
+
+    init() {
+        modelDecisions = DiskStore.load([String: String].self, from: FeedStore.decisionsFile) ?? [:]
+    }
 
     // MARK: - Cache
 
@@ -101,6 +119,94 @@ final class FeedStore: ObservableObject {
                 apply(result, source: source)
             }
         }
+
+        if environment.sortsWithModel {
+            await fileWithModel(sources: sources)
+        }
+    }
+
+    // MARK: - Filing with the model
+
+    /// Asks Claude where the stories from general outlets belong.
+    ///
+    /// Runs after the fetch rather than inside it, so the list is on screen with
+    /// the lexicon's placement while this is in flight and rows move when the
+    /// answers land. Only articles with no stored decision are sent, so the
+    /// steady state is a handful of new headlines per refresh and most refreshes
+    /// send nothing at all.
+    ///
+    /// Every failure is silent and non-destructive. A dead network, a bad key or
+    /// a rate limit leaves the lexicon's verdicts exactly as they were — which is
+    /// a complete, working app — and the next refresh tries again.
+    func fileWithModel(sources: [Source]) async {
+        guard !isSorting else { return }
+
+        // Fixed-topic sources are not guesses and never need asking about.
+        let classified = sources.filter { $0.topicMode == .classified }
+        guard !classified.isEmpty else { return }
+
+        var pending: [(id: String, title: String, source: Source)] = []
+        for source in classified {
+            for article in articlesBySource[source.id] ?? [] where modelDecisions[article.id] == nil {
+                pending.append((article.id, article.displayTitle, source))
+            }
+        }
+        guard !pending.isEmpty else { return }
+        guard let key = await AnthropicKeychain.shared.load() else { return }
+
+        isSorting = true
+        defer { isSorting = false }
+
+        var index = 0
+        while index < pending.count {
+            let batch = Array(pending[index..<min(index + ClassifierAPI.batchSize, pending.count)])
+            index += ClassifierAPI.batchSize
+
+            do {
+                let decisions = try await ClassifierAPI.classify(titles: batch.map(\.title), key: key)
+                for (offset, decision) in decisions {
+                    guard batch.indices.contains(offset) else { continue }
+                    let entry = batch[offset]
+                    let stored: String
+                    switch decision {
+                    case .section(let topic): stored = topic.rawValue
+                    case .unplaced: stored = "none"
+                    }
+                    modelDecisions[entry.id] = stored
+                    if let existing = verdicts[entry.id] {
+                        verdicts[entry.id] = FeedStore.applied(stored, to: existing, source: entry.source)
+                    }
+                }
+            } catch {
+                // One failed batch ends the pass. Whatever landed before it is
+                // kept; the rest are still unfiled and will be asked again.
+                break
+            }
+        }
+
+        saveDecisions()
+    }
+
+    /// Written back pruned to the articles still held, so the file cannot grow
+    /// without bound as a wire churns through thousands of headlines.
+    private func saveDecisions() {
+        var live = Set<String>()
+        for articles in articlesBySource.values {
+            for article in articles { live.insert(article.id) }
+        }
+        modelDecisions = modelDecisions.filter { live.contains($0.key) }
+        DiskStore.save(modelDecisions, to: FeedStore.decisionsFile)
+    }
+
+    /// How many stories are still waiting on the model, for the Sources screen.
+    func unfiledCount(sources: [Source]) -> Int {
+        var count = 0
+        for source in sources where source.topicMode == .classified {
+            for article in articlesBySource[source.id] ?? [] where modelDecisions[article.id] == nil {
+                count += 1
+            }
+        }
+        return count
     }
 
     private func apply(_ result: Result<SourceLoadResult, Error>, source: Source) {
@@ -170,8 +276,34 @@ final class FeedStore: ObservableObject {
 
     private func classify(_ articles: [Article], source: Source) {
         for article in articles {
-            verdicts[article.id] = article.classified(using: source)
+            verdicts[article.id] = verdict(for: article, source: source)
         }
+    }
+
+    /// The lexicon's answer, or the model's where it has already given one.
+    ///
+    /// Checked in this order so a relaunch shows what the model decided rather
+    /// than showing the lexicon's guess and visibly flipping a second later.
+    private func verdict(for article: Article, source: Source) -> TopicVerdict {
+        let lexicon = article.classified(using: source)
+        guard let stored = modelDecisions[article.id] else { return lexicon }
+        return FeedStore.applied(stored, to: lexicon, source: source)
+    }
+
+    /// Folds a stored decision onto the lexicon's verdict.
+    ///
+    /// "none" only hides a story where the source asked for that. Everywhere
+    /// else it leaves the lexicon's placement alone: an outlet whose default is
+    /// a fair guess would rather be filed by guess than not appear.
+    static func applied(_ decision: String, to lexicon: TopicVerdict, source: Source) -> TopicVerdict {
+        if decision == "none" {
+            guard source.dropsUnsortable else { return lexicon }
+            return TopicVerdict(topic: nil, confidence: 1, evidence: [],
+                                isFallback: false, decidedByModel: true)
+        }
+        guard let topic = Topic(rawValue: decision) else { return lexicon }
+        return TopicVerdict(topic: topic, confidence: 1, evidence: [],
+                            isFallback: false, decidedByModel: true)
     }
 
     /// Re-files everything already loaded.
@@ -182,13 +314,15 @@ final class FeedStore: ObservableObject {
         var updated: [String: TopicVerdict] = [:]
         for source in sources {
             for article in articlesBySource[source.id] ?? [] {
-                updated[article.id] = article.classified(using: source)
+                updated[article.id] = verdict(for: article, source: source)
             }
         }
         verdicts = updated
     }
 
     func clearAll() {
+        modelDecisions = [:]
+        DiskStore.delete(FeedStore.decisionsFile)
         articlesBySource = [:]
         phaseBySource = [:]
         noteBySource = [:]
@@ -198,7 +332,10 @@ final class FeedStore: ObservableObject {
     }
 
     func forget(sourceID: String) {
-        for article in articlesBySource[sourceID] ?? [] { verdicts[article.id] = nil }
+        for article in articlesBySource[sourceID] ?? [] {
+            verdicts[article.id] = nil
+            modelDecisions[article.id] = nil
+        }
         articlesBySource[sourceID] = nil
         phaseBySource[sourceID] = nil
         noteBySource[sourceID] = nil

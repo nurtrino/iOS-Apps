@@ -34,6 +34,7 @@ from feed_reference import (  # noqa: E402
     summary_constants, stable_hash_hex, brief_input_key, summary_prompt,
     summary_bullets, merge_articles,
     fred_rows, fred_observations, nearest_observation, percent_change,
+    classifier_constants, classifier_prompt, parse_decisions, one_line,
 )
 
 FAILURES = []
@@ -502,9 +503,20 @@ def verdict_of(title, body="", prior=None, fallback="politics"):
     return classify(title, body, prior, fallback, LEXICON)
 
 
-def filed_or_dropped(title, body="", prior="politics", fallback="politics"):
-    """What an aggregator that drops the unplaceable does with a headline."""
-    return classify(title, body, prior, fallback, LEXICON, drops_unsortable=True)[0]
+def saw_nothing(title, body="", prior="politics", fallback="politics"):
+    """True when no term matched, so the lexicon is guessing.
+
+    This used to be `filed_or_dropped`, and the rename is the whole point of a
+    change made after real headlines started disappearing: a lexicon with no word
+    for a story must not be the thing that hides it. It falls back to the source
+    default and says it is guessing; deciding a story fits nowhere is the model's
+    job now.
+    """
+    return classify(title, body, prior, fallback, LEXICON)[3]
+
+
+def lexicon_topic(title, body="", prior="politics", fallback="politics"):
+    return classify(title, body, prior, fallback, LEXICON)[0]
 
 
 check("the lexicon parses out of the Swift", len(LEXICON), 3)
@@ -852,37 +864,38 @@ AGGREGATOR_CORPUS = [
 ]
 
 _MISFILED_LINKS = []
-_WRONGLY_DROPPED = []
-_WRONGLY_KEPT = []
+_UNSEEN = []
+_GUESSED_AT_JUNK = []
 for _title, _want in AGGREGATOR_CORPUS:
-    _got = filed_or_dropped(_title)
+    _topic, _, _, _fallback = classify(_title, "", "politics", "politics", LEXICON)
     if _want is None:
-        if _got is not None:
-            _WRONGLY_KEPT.append("%r was filed under %s" % (_title, _got))
-    elif _got is None:
-        _WRONGLY_DROPPED.append("%r should be %s" % (_title, _want))
-    elif _got != _want:
-        _MISFILED_LINKS.append("%r → %s, wanted %s" % (_title, _got, _want))
+        # The lexicon cannot tell junk from vocabulary it lacks, and must not
+        # pretend otherwise: it should report that it saw nothing.
+        if not _fallback:
+            _GUESSED_AT_JUNK.append("%r scored as %s" % (_title, _topic))
+    elif _fallback:
+        _UNSEEN.append("%r should be %s and matched nothing" % (_title, _want))
+    elif _topic != _want:
+        _MISFILED_LINKS.append("%r → %s, wanted %s" % (_title, _topic, _want))
 
-check("nothing sortable is dropped", _WRONGLY_DROPPED, [])
-check("nothing unsortable is kept", _WRONGLY_KEPT, [])
+check("the lexicon has words for everything sortable", _UNSEEN, [])
+check("the lexicon claims no signal in the junk", _GUESSED_AT_JUNK, [])
 check("nothing sortable is misfiled", _MISFILED_LINKS, [])
 check_true("the aggregator corpus is big enough to mean something",
            len(AGGREGATOR_CORPUS) >= 70)
 check_true("and it is mostly sortable, which is the point",
            sum(1 for _, want in AGGREGATOR_CORPUS if want) >= 60)
 
-# Dropping is per-source, because it is only right for an aggregator. The same
-# headline on an outlet that writes about markets even when no term lands should
-# still take that outlet's default.
-check("a source that drops returns no topic",
-      classify("Recipe: the only pie crust you need", "", "politics", "politics",
-               LEXICON, drops_unsortable=True)[0], None)
-check("a source that does not drop still falls back",
-      classify("Recipe: the only pie crust you need", "", "economics", "economics",
-               LEXICON, drops_unsortable=False)[0], "economics")
-check("dropping does not touch anything that scored",
-      filed_or_dropped("Fed cuts rates by 25 basis points"), "economics")
+# The lexicon never returns "nowhere", whatever the source is set to. This is the
+# assertion that stops the disappearing act coming back: a word it does not know
+# is not the same thing as a story that fits nowhere.
+check("the lexicon always names a section",
+      lexicon_topic("Recipe: the only pie crust you need"), "politics")
+check("even on a source with a different default",
+      lexicon_topic("Recipe: the only pie crust you need", prior="economics",
+                    fallback="economics"), "economics")
+check("and it admits it was guessing",
+      saw_nothing("Recipe: the only pie crust you need"), True)
 
 
 # --- The other sense of the word --------------------------------------------
@@ -893,42 +906,45 @@ check("dropping does not touch anything that scored",
 # (the phrase cancels the term) or a weight below the threshold (the term needs
 # company).
 
-check("winning gold at the Olympics is not a markets story",
-      filed_or_dropped("Man wins gold at the Olympics"), None)
-check("a gold medal is not a markets story",
-      filed_or_dropped("Team USA wins gold medal in Paris"), None)
-check("but gold itself still is",
-      filed_or_dropped("Gold hits record high"), "economics")
+check("winning gold at the Olympics scores as nothing",
+      saw_nothing("Man wins gold at the Olympics"), True)
+check("a gold medal scores as nothing",
+      saw_nothing("Team USA wins gold medal in Paris"), True)
+check("but gold itself still scores",
+      lexicon_topic("Gold hits record high"), "economics")
 
-check("a war of words is not a war", filed_or_dropped("War of words erupts between senators"),
-      "politics")
-check("a price war is not a war", filed_or_dropped("Price war breaks out among airlines"), None)
-check("a bidding war is not a war", filed_or_dropped("Bidding war for the stadium site"), None)
-check("a culture war is politics", filed_or_dropped("Culture war fight over school library"),
-      "politics")
+check("a war of words is not a war",
+      lexicon_topic("War of words erupts between senators"), "politics")
+check("a price war is not a war",
+      saw_nothing("Price war breaks out among airlines"), True)
+check("a bidding war is not a war",
+      saw_nothing("Bidding war for the stadium site"), True)
+check("a culture war is politics",
+      lexicon_topic("Culture war fight over school library"), "politics")
 
 check("a hike on a trail is not a rate hike",
-      filed_or_dropped("Hikes on the Appalachian Trail get busier"), None)
-check("a rate hike still is", filed_or_dropped("Rate hikes are over, says Powell"), "economics")
+      saw_nothing("Hikes on the Appalachian Trail get busier"), True)
+check("a rate hike still is",
+      lexicon_topic("Rate hikes are over, says Powell"), "economics")
 
 check("a film bombing is not a war story",
-      filed_or_dropped("Film bombs at the box office"), None)
-check("bombing a place is", filed_or_dropped("Israel bombs Gaza"), "war")
+      saw_nothing("Film bombs at the box office"), True)
+check("bombing a place is", lexicon_topic("Israel bombs Gaza"), "war")
 
 check("a union striking a deal is not a war story",
-      filed_or_dropped("Union strikes deal with automaker"), None)
-check("striking a place is", filed_or_dropped("Israel strikes Gaza overnight"), "war")
+      saw_nothing("Union strikes deal with automaker"), True)
+check("striking a place is", lexicon_topic("Israel strikes Gaza overnight"), "war")
 
 # A university winning a championship was politics until the threshold stopped
 # counting the source prior as evidence — the single biggest fix in this pass.
-check("a university winning a championship is not politics",
-      filed_or_dropped("University wins college football championship"), None)
-check("a professor finding a beetle is not politics",
-      filed_or_dropped("Professor discovers new species of beetle"), None)
-check("waking up to snow is not politics",
-      filed_or_dropped("Woke up to six inches of snow"), None)
+check("a university winning a championship scores as nothing",
+      saw_nothing("University wins college football championship"), True)
+check("a professor finding a beetle scores as nothing",
+      saw_nothing("Professor discovers new species of beetle"), True)
+check("waking up to snow scores as nothing",
+      saw_nothing("Woke up to six inches of snow"), True)
 check("an explosion in demand is not a war story",
-      filed_or_dropped("Explosion in demand for used cars"), None)
+      saw_nothing("Explosion in demand for used cars"), True)
 
 # The prior may only break a tie between topics that both cleared on evidence.
 check("the prior cannot get a story over the line",
@@ -1302,6 +1318,75 @@ check("year over year is a percentage",
 check("a fall is negative", round(percent_change(98.0, 100.0), 2), -2.0)
 # A zero denominator has to be inert rather than an infinity on the screen.
 check("dividing by zero yields zero", percent_change(5.0, 0.0), 0.0)
+
+
+# --- Filing with the model ---------------------------------------------------
+#
+# The lexicon knows five hundred terms and a wire uses words outside them all
+# day, so Claude does the filing and the lexicon is the offline answer. Two pure
+# pieces are worth pinning: the numbered prompt, and the parse of what comes
+# back. A parse that silently drops a line is indistinguishable from a model that
+# never answered, and both look like stories going missing — which is the bug
+# this whole path exists to fix.
+
+_CLASSIFIER = classifier_constants()
+check_true("a batch is a sane size",
+           isinstance(_CLASSIFIER.get("batchSize"), int) and 10 <= _CLASSIFIER["batchSize"] <= 100)
+check_true("max_tokens leaves room for a whole batch",
+           _CLASSIFIER["maxTokens"] >= _CLASSIFIER["batchSize"] * 6)
+
+_CLASSIFIER_SOURCE = open(os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "ios", "Dispatch", "Net", "ClassifierAPI.swift"), encoding="utf-8").read()
+# It has to reuse the wire constants rather than writing its own copy.
+check_true("the endpoint comes from SummaryAPI", "SummaryAPI.endpoint" in _CLASSIFIER_SOURCE)
+check_true("so does the model", "SummaryAPI.model" in _CLASSIFIER_SOURCE)
+check_true("a refusal is still handled", '"refusal"' in _CLASSIFIER_SOURCE)
+# Every section name the prompt offers must be one the parser accepts, or an
+# answer the model was told to give would be thrown away.
+for _word in ("war", "politics", "economics", "gaming", "none"):
+    check_true("the prompt offers %r" % _word, _word in _CLASSIFIER_SOURCE)
+
+check("the prompt numbers from one",
+      classifier_prompt(["Gold hits record high", "Israel strikes Gaza"]),
+      "1. Gold hits record high\n2. Israel strikes Gaza")
+
+# A headline containing a newline would break the numbering it is embedded in.
+check("a multi-line headline is flattened",
+      one_line("Breaking:\nexplosion reported"), "Breaking: explosion reported")
+check("runs of whitespace collapse", one_line("a   b\t c"), "a b c")
+check_true("a very long headline is bounded", len(one_line("x" * 500)) == 200)
+
+# The reply parse. The format asked for is "3 politics"; models produce all of
+# these, and each one used to be a story left unfiled.
+check("the plain format parses", parse_decisions("1 war\n2 politics"), {1: "war", 2: "politics"})
+check("a full stop after the number parses", parse_decisions("1. war"), {1: "war"})
+check("a bracket parses", parse_decisions("2) economics"), {2: "economics"})
+check("a dash parses", parse_decisions("3 - gaming"), {3: "gaming"})
+check("an en dash parses", parse_decisions("4 \u2013 none"), {4: "none"})
+check("a colon-free comma parses", parse_decisions("5, war"), {5: "war"})
+check("capitals parse", parse_decisions("6 Politics"), {6: "politics"})
+check("a two-digit number parses", parse_decisions("40 economics"), {40: "economics"})
+
+# "none" has to survive as a word: it is the model saying "nowhere", which is a
+# different thing from the model not answering, and only one of them hides a
+# story.
+check("none is a decision, not a missing answer", parse_decisions("7 none"), {7: "none"})
+
+# Anything unreadable is left out rather than guessed at, so the lexicon's
+# verdict stands for that story.
+check("preamble is ignored",
+      parse_decisions("Sure, here are the sections:\n1 war"), {1: "war"})
+check("an unknown word is ignored", parse_decisions("1 sport"), {})
+check("a line with no number is ignored", parse_decisions("war"), {})
+check("a blank reply yields nothing", parse_decisions(""), {})
+check("trailing prose is ignored",
+      parse_decisions("1 war\nLet me know if you want these grouped differently."), {1: "war"})
+
+# Realistic whole reply.
+check("a whole batch parses",
+      parse_decisions("1. politics\n2. war\n3. economics\n4. none\n5. politics"),
+      {1: "politics", 2: "war", 3: "economics", 4: "none", 5: "politics"})
 
 
 # --- Report -----------------------------------------------------------------

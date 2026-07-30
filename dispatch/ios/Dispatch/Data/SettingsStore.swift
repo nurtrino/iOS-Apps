@@ -91,6 +91,7 @@ final class SettingsStore: ObservableObject {
         static let steamLatinOnly = "settings.steamLatinOnly"
         static let showBrief = "settings.showBrief"
         static let aiSummaries = "settings.aiSummaries"
+        static let aiSorting = "settings.aiSorting"
         static let hasAnthropicKey = "settings.hasAnthropicKey"
     }
 
@@ -174,10 +175,20 @@ final class SettingsStore: ObservableObject {
 
     /// Whether the brief opens with prose written by the Claude API.
     ///
-    /// Off by default and inert without a key: this is the one feature that
-    /// sends anything off the device, so it exists only by explicit opt-in.
+    /// Off by default and inert without a key: these are the only features that
+    /// send anything off the device, so they exist only by explicit opt-in.
     @Published var aiSummaries: Bool {
         didSet { defaults.set(aiSummaries, forKey: Key.aiSummaries) }
+    }
+
+    /// Whether Claude decides which section a story from a general outlet goes
+    /// in, rather than the lexicon.
+    ///
+    /// On by default *once a key exists*, because the lexicon's failure mode is
+    /// worse than the cost: a term it does not know is a story filed by guess,
+    /// and on a source that skips what fits nowhere it was a story that vanished.
+    @Published var aiSorting: Bool {
+        didSet { defaults.set(aiSorting, forKey: Key.aiSorting) }
     }
 
     /// Mirrors whether a key is in the Keychain.
@@ -215,6 +226,7 @@ final class SettingsStore: ObservableObject {
         steamLatinOnly = defaults.object(forKey: Key.steamLatinOnly) as? Bool ?? true
         showBrief = defaults.object(forKey: Key.showBrief) as? Bool ?? true
         aiSummaries = defaults.object(forKey: Key.aiSummaries) as? Bool ?? false
+        aiSorting = defaults.object(forKey: Key.aiSorting) as? Bool ?? true
         hasAnthropicKey = defaults.bool(forKey: Key.hasAnthropicKey)
 
         if let data = defaults.data(forKey: Key.xBridge),

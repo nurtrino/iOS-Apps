@@ -34,9 +34,17 @@ enum BackgroundRefresh {
         let feed = FeedStore()
 
         feed.hydrateFromCache(sources: catalog.sources)
+
+        // Filing with Claude is left off here on purpose. A background wake
+        // spending money on the API with nobody looking is a surprise on a bill;
+        // the fetch is the useful part, and the first foreground refresh files
+        // whatever arrived.
+        var environment = settings.loadEnvironment(games: library.activeGames)
+        environment.sortsWithModel = false
+
         await feed.refresh(
             sources: catalog.enabledSources,
-            environment: settings.loadEnvironment(games: library.activeGames),
+            environment: environment,
             force: true
         )
     }

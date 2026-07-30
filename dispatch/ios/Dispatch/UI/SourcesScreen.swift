@@ -355,11 +355,13 @@ struct SourceEditor: View {
             lines.append("Each story is scored against the War, Politics and Markets "
                          + "vocabularies and filed by whichever wins. “Usually about” breaks a "
                          + "tie between two that both scored.")
-            lines.append("“Skip stories that fit nowhere” drops a story when nothing in it "
-                         + "matched any of the three vocabularies, instead of filing it under "
-                         + "“when unsure”. Right for an aggregator that posts sport and celebrity "
-                         + "next to the news; wrong for an outlet whose default is a fair guess. "
-                         + "Skipped stories are still on this source's own screen and in Search.")
+            lines.append("“Skip stories that fit nowhere” lets Claude drop a story it judges to "
+                         + "belong in none of the sections — sport, celebrity, a viral video. "
+                         + "Right for an aggregator that posts those next to the news. It needs "
+                         + "sorting turned on in Settings › Claude: the term list alone never "
+                         + "hides anything, because a word it does not know is not the same thing "
+                         + "as a story that fits nowhere. Skipped stories are still on this "
+                         + "source's own screen and in Search.")
         }
 
         lines.append("“Open the web page” skips the reader — right for a link aggregator, whose "
@@ -405,22 +407,20 @@ struct SourceEditor: View {
             // is the fastest way to see whether the filing is sane.
             if source.topicMode == .classified, !result.articles.isEmpty {
                 var counts: [Topic: Int] = [:]
-                var unsorted = 0
+                var guessed = 0
                 for article in result.articles {
-                    if let topic = article.classified(using: source).topic {
-                        counts[topic, default: 0] += 1
-                    } else {
-                        unsorted += 1
-                    }
+                    let verdict = article.classified(using: source)
+                    if let topic = verdict.topic { counts[topic, default: 0] += 1 }
+                    if verdict.isFallback { guessed += 1 }
                 }
                 var parts = Topic.classifiable
                     .compactMap { topic in counts[topic].map { "\(topic.title) \($0)" } }
-                // Worth its own number rather than hidden in the total: on an
-                // aggregator this is the count that says whether the vocabulary
-                // is keeping up with what it posts.
-                if unsorted > 0 { parts.append("no section \(unsorted)") }
+                // The number that matters on an aggregator: how many of these the
+                // term list had no words for and placed by the source's default.
+                // Those are the ones Claude is for.
+                if guessed > 0 { parts.append("guessed \(guessed)") }
                 let summary = parts.joined(separator: " · ")
-                if !summary.isEmpty { lines += "\nSorted: " + summary }
+                if !summary.isEmpty { lines += "\nTerm list: " + summary }
             }
             if let newest = result.articles.first {
                 lines += "\nNewest: \(newest.displayTitle.prefix(80))"

@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// AI summaries setup: the toggle, the key, and — because this is the only
-/// feature that sends anything off the device — an exact statement of what
-/// goes over the wire.
+/// The two things Claude does here, the key they need, and — because these are
+/// the only features that send anything off the device — an exact statement of
+/// what goes over the wire.
 struct SummariesScreen: View {
 
     @EnvironmentObject private var settings: SettingsStore
@@ -21,11 +21,12 @@ struct SummariesScreen: View {
 
     var body: some View {
         Form {
+            sortingSection
             featureSection
             keySection
             testSection
         }
-        .navigationTitle("AI summaries")
+        .navigationTitle("Claude")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $webLink) { link in
             SafariSheet(url: link.url).ignoresSafeArea()
@@ -33,6 +34,32 @@ struct SummariesScreen: View {
     }
 
     // MARK: - Sections
+
+    private var sortingSection: some View {
+        Section {
+            Toggle(isOn: $settings.aiSorting) {
+                Label("File stories into sections", systemImage: "arrow.triangle.branch")
+            }
+        } header: {
+            Text("Sorting")
+        } footer: {
+            Text(sortingFooter)
+        }
+    }
+
+    private var sortingFooter: String {
+        "Stories from a general outlet — ZeroHedge, Citizen Free Press — have to be filed into "
+            + "War, Politics or Markets one at a time. On device that is a list of five hundred "
+            + "weighted terms, which is fast and free and knows only the words it was given: a "
+            + "headline using none of them gets filed by guess, and on a source set to skip what "
+            + "fits nowhere it disappeared instead.\n\n"
+            + "With this on, Claude decides. Forty headlines go in one request, each answer is "
+            + "stored against that story forever, and a story already filed is never sent again — "
+            + "so a busy day is one or two requests. The term list stays as the offline answer: "
+            + "no key, no network or a failed request and nothing is lost, stories are just filed "
+            + "the old way until the next refresh.\n\n"
+            + "Only headline text is sent. No article bodies, no reading history."
+    }
 
     private var featureSection: some View {
         Section {

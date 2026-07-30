@@ -190,7 +190,8 @@ extension SettingsStore {
             bridge: xBridge,
             steam: steamContext(games: games),
             itemsPerSource: itemsPerSource,
-            staleAfter: refreshInterval.seconds
+            staleAfter: refreshInterval.seconds,
+            sortsWithModel: aiSorting && hasAnthropicKey
         )
     }
 }

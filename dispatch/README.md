@@ -38,18 +38,31 @@ Three things make it better than a naive keyword match:
 - **Distinct terms, not occurrences.** One repeated word in a long article
   cannot outvote five different signals in a short one.
 
-Below a minimum score nothing is asserted. What happens then is a per-source
-choice, because the right answer differs by source:
+Below a minimum score nothing is asserted, and the story takes the source's
+declared default — **always**. A lexicon that hides what it has no words for
+turns every missing term into a missing story, which is exactly what happened
+when it was allowed to: a wire posting a hundred headlines a day uses words
+outside a five-hundred-term table all day long, and a third of Citizen Free Press
+went invisible. Deciding a story fits nowhere is a judgement, and the lexicon is
+not equipped to make it.
 
-- **ZeroHedge falls back to its default.** It writes about markets even when no
-  term lands, so Markets is a fair guess.
-- **Citizen Free Press drops the story instead.** An aggregator posts dozens of
-  items a day and some of them are a bear in a supermarket. Filing those under
-  Politics does not make them politics, it makes Politics wrong — and invisibly,
-  because a section full of noise looks exactly like a section full of news.
-  Dropped stories are not deleted: they are still on the source's own screen and
-  in Search, just not in a section. The toggle is "Skip stories that fit nowhere"
-  in the source editor.
+### Claude does the filing
+
+With an Anthropic key saved and sorting on (Settings › Claude), stories from a
+general outlet are filed by `claude-haiku-4-5` instead. Forty headlines go in one
+request; each answer is stored against the article id forever and never asked
+again, so the steady state is one or two requests a day and most refreshes send
+nothing. Only headline text goes over the wire.
+
+The model may also answer **none** — the story belongs in no section. That is the
+only thing that ever hides a story, and only where the source is set to
+"Skip stories that fit nowhere" (on for CFP, off for ZeroHedge, whose default is a
+fair guess). Hidden stories are not deleted: they are on the source's own screen
+and in Search, and the reader says so instead of pretending.
+
+Everything degrades to the lexicon. No key, no network, a rate limit, a refusal —
+the term list files the story and nothing is lost. The reader's evidence line says
+which decided: terms, a default, or "filed by Claude".
 
 The threshold is tested against the **evidence alone**, before the source prior is
 added. The prior is a belief about the source, not something the story said, and
@@ -87,6 +100,14 @@ The aggregator corpus then found the same failure at scale: **24 of 73** matched
 nothing and were being filed under Politics — a section that looked like news and
 was a third guesswork. That is the failure mode you cannot see from inside the
 app, so both corpora also assert that **nothing reaches its section by fallback**.
+
+That corpus is also the cautionary tale in this repository. It passed 73 of 73,
+and then real headlines arrived and stories went missing anyway — because the 73
+were written by the same hand that wrote the lexicon, so all they proved was that
+the table covered its author's idea of that wire. It is a regression test, not
+evidence about the world. What it did earn is the *shape* of the fix: the lexicon
+never hides anything, and the judgement call moved to a model that has read more
+headlines than anyone is going to enumerate by hand.
 
 Roughly 200 terms went in to close it, and every one of them arrived with a second
 meaning attached. Those are pinned too, each from a real misfile found by probing:

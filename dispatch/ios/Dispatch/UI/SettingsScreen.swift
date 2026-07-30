@@ -53,11 +53,10 @@ struct SettingsScreen: View {
                 SummariesScreen()
             } label: {
                 LabeledContent {
-                    Text(settings.aiSummaries && settings.hasAnthropicKey ? "On"
-                         : settings.hasAnthropicKey ? "Off" : "Not set")
+                    Text(claudeStatus)
                         .foregroundStyle(settings.hasAnthropicKey ? .secondary : .tertiary)
                 } label: {
-                    Label("AI summaries", systemImage: "text.badge.star")
+                    Label("Claude", systemImage: "sparkles")
                 }
             }
 
@@ -72,6 +71,15 @@ struct SettingsScreen: View {
                 }
             }
         }
+    }
+
+    /// "Not set", or which of the two features are on.
+    private var claudeStatus: String {
+        guard settings.hasAnthropicKey else { return "Not set" }
+        var parts: [String] = []
+        if settings.aiSorting { parts.append("sorting") }
+        if settings.aiSummaries { parts.append("brief") }
+        return parts.isEmpty ? "Off" : parts.joined(separator: " · ")
     }
 
     private var readingSection: some View {

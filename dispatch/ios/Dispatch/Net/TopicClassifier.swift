@@ -4,10 +4,11 @@ import Foundation
 struct TopicVerdict: Equatable {
     /// Where the story goes, or **nil** when it goes nowhere.
     ///
-    /// Nil is the outcome for a source that drops what it cannot place. A link
-    /// aggregator posts a hundred things a day and some of them are a bear in a
-    /// supermarket; filing those under the source's default topic does not make
-    /// them politics, it makes Politics wrong. See `Source.dropsUnsortable`.
+    /// Only the model ever returns nil. The lexicon always names a section —
+    /// falling back to the source's default when it saw nothing — because a
+    /// lexicon that hides what it does not recognise turns every missing term
+    /// into a missing story, which is exactly what happened. Deciding that a
+    /// story fits nowhere is a judgement, and the model makes it.
     let topic: Topic?
     let confidence: Double
     /// The terms that carried the decision, strongest first. Shown in the
@@ -15,9 +16,10 @@ struct TopicVerdict: Equatable {
     /// a heuristic — if it puts a story in the wrong place you can see exactly
     /// what fooled it.
     let evidence: [String]
-    /// True when nothing scored high enough: either the source's default was
-    /// used, or — where the source drops what it cannot place — nothing was.
+    /// True when nothing scored high enough and the source's default was used.
     let isFallback: Bool
+    /// True when Claude filed this rather than the lexicon.
+    var decidedByModel: Bool = false
 }
 
 /// Sorts a story into War, Politics or Markets.
@@ -113,8 +115,7 @@ enum TopicClassifier {
     static func classify(title: String,
                          body: String,
                          prior: Topic?,
-                         fallback: Topic,
-                         dropsUnsortable: Bool = false) -> TopicVerdict {
+                         fallback: Topic) -> TopicVerdict {
         let titleField = field(title)
         let bodyField = field(bodyPrefix(body))
 
@@ -169,8 +170,7 @@ enum TopicClassifier {
         // championship" became a politics story.
         let strongest = Topic.classifiable.map { scores[$0] ?? 0 }.max() ?? 0
         guard strongest >= minimumScore else {
-            return TopicVerdict(topic: dropsUnsortable ? nil : fallback,
-                                confidence: 0, evidence: [], isFallback: true)
+            return TopicVerdict(topic: fallback, confidence: 0, evidence: [], isFallback: true)
         }
 
         if let prior {
@@ -187,8 +187,7 @@ enum TopicClassifier {
             }
 
         guard let winner = ranked.first else {
-            return TopicVerdict(topic: dropsUnsortable ? nil : fallback,
-                                confidence: 0, evidence: [], isFallback: true)
+            return TopicVerdict(topic: fallback, confidence: 0, evidence: [], isFallback: true)
         }
 
         let runnerUp = ranked.count > 1 ? ranked[1].1 : 0
@@ -295,8 +294,7 @@ extension Article {
                 title: displayTitle,
                 body: summary,
                 prior: source.topicPrior,
-                fallback: source.fixedTopic,
-                dropsUnsortable: source.dropsUnsortable
+                fallback: source.fixedTopic
             )
         }
     }
