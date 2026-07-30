@@ -1,0 +1,21 @@
+name: Dispatch live verify
+
+# Fetches the real feeds and traces every article through the Python mirror of
+# the pipeline. Exists because the development environment cannot reach news
+# hosts, so "is CFP actually coming through" was answered with theories for far
+# too long. The runner can reach them; this makes the answer a log.
+on:
+  push:
+    paths:
+      - 'dispatch/tools/verify_live.py'
+      - '.github/workflows/dispatch-verify.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trace the live feeds
+        run: python3 dispatch/tools/verify_live.py
