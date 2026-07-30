@@ -517,6 +517,40 @@ background-task identifier that does not match Info.plist, duplicate catalog
 ids, a lexicon line the test parser would silently skip, and an FOMC table
 running out.
 
+## The icon
+
+`design/icon-source.png` is the artwork; `tools/make_icons.py` turns it into the
+icon Xcode ships. There are no image libraries in this environment, so that file
+contains a PNG decoder as well as an encoder.
+
+Three things happen to a supplied export, and each one is there because of a
+visible failure:
+
+- **It is cropped to its content and made full-bleed in the artwork's own
+  background colour.** iOS applies its own superellipse mask, so an image that
+  rounds its own corners and sits on white keeps that white *outside* its curve
+  and inside Apple's — four pale wedges around a dark square.
+- **Everything that is not the mark is flattened**, in two passes. A flood fill
+  inward from the border removes the page and the soft ring where the artwork's
+  curve meets it; that ring is lighter than anything in the mark, so left behind
+  it won the "what is the brightest colour here" question and became the app's
+  tint, sampled from an anti-aliasing artifact. Then a floor — nothing darker than
+  the ground — catches the drop shadow, which a fill cannot reach because a shadow
+  fades *through* the ground value on its way out and the fill stops at that ring.
+- **The mark is lifted away from its background.** A dark grey mark on near-black
+  is handsome at full size and a black square at 60 points. The lift scales each
+  pixel's distance from the ground, so the ground stays exactly flat — which
+  matters, because Apple's mask cuts into it — with a deadzone so the export's
+  grain is flattened rather than multiplied.
+
+The tool prints the ground and the artwork's lightest colour every run, and says
+when that colour is too dark to tint an interface with — which is the case here,
+so `Palette.accent` is neutral and the four section colours are the only colour in
+the app. `precheck.py` checks the result is 1024², 8-bit and **RGB with no alpha**,
+because iOS rejects an alpha channel and nothing says so until you try to ship.
+
+Delete the source file and the tool goes back to generating its own mark.
+
 ## Build
 
 ```sh

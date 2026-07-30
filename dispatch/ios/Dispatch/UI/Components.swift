@@ -1,9 +1,20 @@
 import SwiftUI
 
 enum Palette {
-    /// Sampled from the app icon's mark, so the tint and the icon are the same
-    /// amber rather than two that nearly match.
-    static let accent = Color(red: 0.941, green: 0.569, blue: 0.169)
+    /// The app's tint.
+    ///
+    /// Neutral rather than a colour, and that follows from the icon: the artwork
+    /// is a grey mark on near-black, and its lightest colour (#74757A) is far too
+    /// dark to tint a button with. `make_icons.py` samples the icon and prints
+    /// this decision every time it runs, so the two cannot drift apart silently.
+    ///
+    /// It also leaves the four section colours — war red, politics blue, markets
+    /// green, gaming purple — as the only colour in the app, which is the right
+    /// division of labour: colour means *which section you are in*, and nothing
+    /// else competes with it.
+    static let accent = Color(red: 0.902, green: 0.910, blue: 0.925)
+    /// Kept for the generated icon's kicker bar, which is the only thing that
+    /// still uses a warm colour and only when no artwork is supplied.
     static let kicker = Color(red: 0.886, green: 0.369, blue: 0.235)
     static let surface = Color.secondary.opacity(0.10)
     static let surfaceStrong = Color.secondary.opacity(0.18)

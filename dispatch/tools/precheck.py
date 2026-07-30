@@ -438,6 +438,36 @@ def check_fomc_table():
         print("note: FOMC table runs out in %d days — extend it soon" % remaining)
 
 
+def check_app_icon():
+    """The icon has to exist, be square, be RGB with no alpha, and be full-bleed.
+
+    iOS rejects an alpha channel outright, and artwork that rounds its own corners
+    gets pale wedges cut around it by Apple's mask. Both are invisible until the
+    icon is on a home screen, so they are checked here instead.
+    """
+    path = os.path.join(REPO, "ios", "Dispatch", "Assets.xcassets",
+                        "AppIcon.appiconset", "AppIcon.png")
+    if not os.path.exists(path):
+        fail("AppIcon.png is missing — run tools/make_icons.py")
+        return
+
+    with open(path, "rb") as handle:
+        data = handle.read()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        fail("AppIcon.png is not a PNG")
+        return
+
+    import struct as _struct
+    width, height, depth, colour = _struct.unpack(">IIBB", data[16:26])
+    if (width, height) != (1024, 1024):
+        fail("AppIcon.png is %dx%d; iOS wants 1024x1024" % (width, height))
+    if depth != 8:
+        fail("AppIcon.png is %d-bit; iOS wants 8" % depth)
+    if colour != 2:
+        fail("AppIcon.png has colour type %d; iOS rejects an alpha channel, so it "
+             "must be 2 (RGB)" % colour)
+
+
 def check_lexicon():
     """The classifier tests parse this file, so its shape is load-bearing."""
     path = os.path.join(REPO, "ios", "Dispatch", "Net", "TopicLexicon.swift")
@@ -494,6 +524,7 @@ def main():
     check_info_plist()
     check_assets()
     check_catalog_ids()
+    check_app_icon()
     check_lexicon()
     check_fomc_table()
 
