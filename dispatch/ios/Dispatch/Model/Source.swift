@@ -394,4 +394,21 @@ enum SourceCatalog {
     static func `default`(withID id: String) -> Source? {
         defaults.first { $0.id == id }
     }
+
+    /// Bumped when a stored flag's *meaning* changes, not when a default does.
+    ///
+    /// The two are different and the difference is why stories went missing. A
+    /// changed default is fine: the decoder falls back to it only when a stored
+    /// catalog has no value for the key, so someone who edited a source keeps
+    /// their edit and someone who never touched it gets the new behaviour.
+    ///
+    /// A changed *meaning* is not fine. `dropsUnsortable` used to say "the
+    /// lexicon may hide what it has no words for" and now says "the model may
+    /// hide what it judges to fit nowhere". A device that stored `true` under the
+    /// first meaning never agreed to the second — but the value is present, so
+    /// the decoder honours it and turning the shipped default off reaches nobody
+    /// who already has the app. That is precisely the population the change was
+    /// for. `CatalogStore` resets the affected flags when it sees an older
+    /// revision.
+    static let behaviourRevision = 2
 }

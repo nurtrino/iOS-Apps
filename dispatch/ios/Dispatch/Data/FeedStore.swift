@@ -46,13 +46,38 @@ final class FeedStore: ObservableObject {
 
     private static let decisionsFile = "model-verdicts"
 
+    /// A stored decision, and the prompt that produced it.
+    ///
+    /// Versioned because a decision is an *opinion*, and an opinion held under a
+    /// different prompt is not evidence for the current one. The specific harm:
+    /// a run that answered "none" too freely wrote those answers to disk, where
+    /// they went on hiding stories after the code that produced them was fixed —
+    /// caching is what makes the feature cheap and it is also what makes a bad
+    /// answer permanent.
+    private struct StoredDecisions: Codable {
+        var revision: Int
+        var decisions: [String: String]
+    }
+
     /// Guards against the same source being fetched twice at once, which
     /// happens the moment someone pulls to refresh while the on-appear load is
     /// still running.
     private var inFlight: Set<String> = []
 
     init() {
-        modelDecisions = DiskStore.load([String: String].self, from: FeedStore.decisionsFile) ?? [:]
+        if let stored = DiskStore.load(StoredDecisions.self, from: FeedStore.decisionsFile) {
+            modelDecisions = stored.decisions
+            if stored.revision != ClassifierAPI.promptRevision {
+                // Only the hiding is discarded. A section is a section whatever
+                // prompt produced it, and those answers were paid for; "none" is
+                // the one that costs a story if it was wrong.
+                modelDecisions = modelDecisions.filter { $0.value != "none" }
+            }
+        } else if let legacy = DiskStore.load([String: String].self, from: FeedStore.decisionsFile) {
+            // Written before decisions were versioned — which is exactly the run
+            // whose answers are in question, so none of its hiding survives.
+            modelDecisions = legacy.filter { $0.value != "none" }
+        }
     }
 
     // MARK: - Cache
@@ -207,7 +232,9 @@ final class FeedStore: ObservableObject {
             for article in articles { live.insert(article.id) }
         }
         modelDecisions = modelDecisions.filter { live.contains($0.key) }
-        DiskStore.save(modelDecisions, to: FeedStore.decisionsFile)
+        DiskStore.save(StoredDecisions(revision: ClassifierAPI.promptRevision,
+                                       decisions: modelDecisions),
+                       to: FeedStore.decisionsFile)
     }
 
     /// How many stories are still waiting on the model, for the Sources screen.

@@ -108,7 +108,30 @@ struct SourcesScreen: View {
         }
     }
 
+    /// What this source is *doing*, not just where it points.
+    ///
+    /// The address was the whole line, which answers a question nobody has. The
+    /// question people actually have is "why is this section empty", and this
+    /// screen is where they come to ask it — so the line leads with the counts
+    /// and the error, and falls back to the address when there is nothing to
+    /// report. A missing story should be one tap from an explanation.
     private func detail(for source: Source) -> String {
+        if let message = feed.phase(for: [source]).errorMessage {
+            return message
+        }
+
+        let articles = feed.articles(for: source.id)
+        guard !articles.isEmpty else {
+            return source.isEnabled ? "Nothing loaded yet" : address(for: source)
+        }
+
+        let hidden = articles.filter { feed.verdict(for: $0)?.topic == nil }.count
+        var parts = ["\(articles.count) stored"]
+        if hidden > 0 { parts.append("\(hidden) in no section") }
+        return parts.joined(separator: " · ")
+    }
+
+    private func address(for source: Source) -> String {
         switch source.kind {
         case .rss: return source.endpoint
         case .telegram: return "t.me/\(TelegramFeed.normalizeChannel(source.endpoint))"

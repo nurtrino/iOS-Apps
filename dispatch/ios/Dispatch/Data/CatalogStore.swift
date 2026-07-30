@@ -13,6 +13,7 @@ final class CatalogStore: ObservableObject {
     @Published private(set) var sources: [Source]
 
     private let sourcesFile = "sources"
+    private let revisionFile = "catalog-revision"
 
     init(load: Bool = true) {
         guard load else {
@@ -21,12 +22,39 @@ final class CatalogStore: ObservableObject {
         }
         let stored = DiskStore.load([Source].self, from: sourcesFile)
         let merged = CatalogStore.merge(stored: stored, defaults: SourceCatalog.defaults)
-        sources = merged.sources
+
+        let storedRevision = DiskStore.load([Int].self, from: revisionFile)?.first ?? 1
+        let migrated = CatalogStore.migrate(merged.sources, from: storedRevision)
+        sources = migrated.sources
 
         // Retiring a built-in has to reach disk, or it is undone by whatever
         // writes next. Counting is not enough to detect it — a retirement and
         // an addition in the same release cancel out — so `merge` reports it.
-        if merged.didRetire { persist() }
+        if merged.didRetire || migrated.didChange || storedRevision != SourceCatalog.behaviourRevision {
+            persist()
+            DiskStore.save([SourceCatalog.behaviourRevision], to: revisionFile)
+        }
+    }
+
+    /// Resets flags whose meaning changed under a stored value.
+    ///
+    /// Only built-ins, and only the flags named here — this is not a general
+    /// "reset everything", which would throw away real edits. See
+    /// `SourceCatalog.behaviourRevision` for why a changed default is not enough.
+    static func migrate(_ sources: [Source], from revision: Int) -> (sources: [Source], didChange: Bool) {
+        guard revision < SourceCatalog.behaviourRevision else { return (sources, false) }
+
+        var changed = false
+        let updated = sources.map { source -> Source in
+            guard source.isBuiltIn,
+                  let shipped = SourceCatalog.default(withID: source.id),
+                  source.dropsUnsortable != shipped.dropsUnsortable else { return source }
+            var source = source
+            source.dropsUnsortable = shipped.dropsUnsortable
+            changed = true
+            return source
+        }
+        return (updated, changed)
     }
 
     /// Stored order wins; built-ins the stored copy has never seen are appended.

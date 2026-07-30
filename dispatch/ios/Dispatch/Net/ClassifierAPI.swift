@@ -31,8 +31,10 @@ enum ClassifierAPI {
     /// Roughly six tokens a line plus slack.
     static let maxTokens = 600
 
-    /// Bumped when the prompt changes, so stored decisions can be invalidated.
-    static let promptRevision = 1
+    /// Bumped when the prompt changes *or* when stored answers are no longer
+    /// trusted. `FeedStore` discards stored "none" decisions when this moves,
+    /// which is how a run that hid too much stops hiding after it is fixed.
+    static let promptRevision = 2
 
     static let systemPrompt =
         "You file news headlines into one section of a personal news app. The sections are:\n"
