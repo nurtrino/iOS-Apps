@@ -70,6 +70,18 @@ jobs:
             find build/Build/Products -maxdepth 3 -name '*.app' || true
             exit 1
           fi
+          # Prove the stamp took before shipping anything. CFBundleVersion was
+          # hardcoded to 1 in Info.plist once, which silently discarded the
+          # build number CI passes — so the release said 1.0 (1) forever and
+          # "which build is on the phone" was unanswerable. Never again: a
+          # build that still calls itself 1 does not get released.
+          BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP/Info.plist")
+          echo "CFBundleVersion in the built app: $BUILD_NUMBER"
+          if [ "$BUILD_NUMBER" != "${{ github.run_number }}" ]; then
+            echo "::error::built app reports CFBundleVersion=$BUILD_NUMBER, expected ${{ github.run_number }} — the stamp did not take"
+            exit 1
+          fi
+
           rm -rf payload
           mkdir -p payload/Payload
           cp -R "$APP" payload/Payload/
