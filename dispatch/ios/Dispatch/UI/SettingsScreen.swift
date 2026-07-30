@@ -219,6 +219,9 @@ struct SettingsScreen: View {
 
     private var aboutSection: some View {
         Section {
+            // The build number is the CI run number. When something "still is
+            // not working", this line is the first question: a report against
+            // build 1 is a report about code from before every fix shipped.
             LabeledContent("Version", value: Bundle.main.versionString)
             LabeledContent("Saved articles", value: "\(read.saved.count)")
             LabeledContent("Stories loaded", value: "\(feed.everyArticle.count)")
