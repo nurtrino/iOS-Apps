@@ -551,10 +551,58 @@ because iOS rejects an alpha channel and nothing says so until you try to ship.
 
 Delete the source file and the tool goes back to generating its own mark.
 
+## Android
+
+The same app, ported, in `android/`. Two modules split by where each can be
+verified:
+
+- **`core`** is pure Kotlin with no Android dependency at all: XML repair, the
+  feed parser, HTML to text, the article and source models, the classifier, and
+  the Claude request and reply handling. It compiles and its tests run on any
+  JVM, which means they run during development rather than only on CI. 70 tests,
+  ported from `tools/test_feeds.py`.
+- **`app`** is Compose, and everything that touches an Android API. It needs the
+  SDK, so `settings.gradle.kts` includes it only when `ANDROID_HOME` is set —
+  without that guard a checkout with no SDK cannot even *configure* the build,
+  because Gradle resolves the Android plugin before it runs anything, and
+  `core`'s tests fail for reasons that have nothing to do with the code.
+
+The lexicon is **generated from the iOS Swift** by `tools/gen_lexicon_kt.py`.
+Five hundred weighted terms maintained in two languages would diverge inside a
+week, and the divergence would be invisible — both apps would keep working and
+quietly file the same story differently. CI runs the generator with `--check` and
+fails if the Kotlin is stale. That makes three consumers of one table: Swift, the
+Python tests, and Kotlin.
+
+The behaviours that were learned the hard way came across with it: merge rather
+than replace so a fast wire does not lose stories, the browser user agent that
+stops Cloudflare returning 403, ids derived before any link rewriting, outbound
+link resolution for aggregators, and model decisions cached per article id.
+
+`.github/workflows/dispatch-android.yml` builds a **debug APK** and uploads it as
+a workflow artifact. Debug because the standard debug key is the only key that
+exists in a public repository: it installs from a file manager with "unknown
+sources" allowed, and it is not a Play Store artifact.
+
+**Not ported yet:** the brief, the live rail, Steam, the release calendar,
+per-source screens and settings. The Android app reads and files; the furniture
+is iOS-only so far.
+
+The root build's `buildscript` block puts the Android plugin on the classpath only
+when there is an SDK, and every module applies plugins by id with no versions.
+That is deliberate and cost four CI runs to arrive at: declaring the Android
+plugin in a root `plugins { }` block breaks any machine without access to Google's
+Maven repository, and declaring only the Kotlin plugins there loads them in a
+different classloader from AGP — after which the Kotlin Android plugin cannot see
+AGP's classes and fails on a missing `BaseVariant`. One shared buildscript
+classpath avoids both.
+
 ## Build
 
 ```sh
 python3 dispatch/tools/precheck.py            # static checks + parser tests
+python3 dispatch/tools/gen_lexicon_kt.py      # regenerate the Android lexicon
+cd dispatch/android && ./gradlew :core:test   # the Kotlin port's tests
 python3 dispatch/tools/gen_pbxproj.py         # regenerate after adding a file
 python3 dispatch/tools/make_icons.py          # regenerate the icon
 
