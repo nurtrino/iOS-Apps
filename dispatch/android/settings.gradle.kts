@@ -10,21 +10,6 @@
 //
 // `app` is the Compose UI and everything that touches an Android API. It needs
 // the SDK, so it is only ever built on CI.
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-dependencyResolutionManagement {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
 rootProject.name = "dispatch"
 include(":core")
 
@@ -37,15 +22,16 @@ include(":core")
 // fails for reasons that have nothing to do with the code.
 //
 // CI sets ANDROID_HOME, so the APK still builds there.
-val androidSdk = System.getenv("ANDROID_HOME")
-    ?: System.getenv("ANDROID_SDK_ROOT")
-    ?: file("local.properties").takeIf { it.exists() }
-        ?.readLines()
-        ?.firstOrNull { it.startsWith("sdk.dir=") }
-        ?.removePrefix("sdk.dir=")
+// Checked exactly the way the root build's buildscript checks it. If these two
+// conditions could disagree — one including the app module, the other leaving the
+// Android plugin off the classpath — the failure is an unresolved plugin id with
+// no obvious cause.
+val hasAndroidSdk = System.getenv("ANDROID_HOME") != null ||
+    System.getenv("ANDROID_SDK_ROOT") != null
 
-if (androidSdk != null) {
+if (hasAndroidSdk) {
     include(":app")
 } else {
     logger.lifecycle("No Android SDK found - building :core only. Set ANDROID_HOME for the APK.")
+
 }

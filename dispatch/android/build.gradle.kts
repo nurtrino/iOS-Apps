@@ -1,16 +1,32 @@
-// The Kotlin plugins are declared here with `apply false`, and the Android
-// plugin deliberately is not.
+// One buildscript classpath for the whole build, with the Android plugin on it
+// only when there is an SDK to use it.
 //
-// Both halves of that matter. Declaring the Kotlin plugins once at the root is
-// what stops the app module's request for `kotlin.android` failing with "already
-// on the classpath with an unknown version" — a subproject may not name a
-// version for a plugin the root has already loaded. Declaring the *Android*
-// plugin here would make Gradle resolve it from Google's Maven repository before
-// configuring anything, which fails on any machine without access to it and takes
-// :core's tests down with it. So the app module declares that one, and is only
-// included when there is an SDK to build against. See settings.gradle.kts.
-plugins {
-    alias(libs.plugins.kotlin.jvm) apply false
-    alias(libs.plugins.kotlin.android) apply false
-    alias(libs.plugins.compose.compiler) apply false
+// The plugins DSL cannot express that, and trying to cost two CI runs. Declaring
+// the Android plugin in a root `plugins {}` block — even `apply false` — makes
+// Gradle resolve it from Google's Maven repository before configuring anything,
+// which fails on a machine without access and takes :core's tests down with it.
+// Declaring only the *Kotlin* plugins there instead loads them in the root's
+// classloader while the app module loads the Android plugin in its own, and the
+// Kotlin Android plugin then cannot see AGP's classes at all: it fails applying
+// itself with a missing `com/android/build/gradle/api/BaseVariant`.
+//
+// A buildscript block is ordinary Kotlin, so it can hold the condition, and
+// everything it puts on the classpath is shared by every module. Both halves of
+// the problem go away.
+buildscript {
+    val hasAndroidSdk = System.getenv("ANDROID_HOME") != null ||
+        System.getenv("ANDROID_SDK_ROOT") != null
+
+    repositories {
+        if (hasAndroidSdk) google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21")
+        classpath("org.jetbrains.kotlin:compose-compiler-gradle-plugin:2.0.21")
+        if (hasAndroidSdk) {
+            classpath("com.android.tools.build:gradle:8.7.3")
+        }
+    }
 }
