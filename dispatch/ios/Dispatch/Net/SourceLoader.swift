@@ -72,7 +72,9 @@ enum SourceLoader {
                     context: index == 0 ? nil : url.host,
                     resolvesOutbound: source.resolvesOutboundLink
                 )
-                let note = index == 0 ? nil : "Primary feed unreachable — showing \(url.host ?? candidate)."
+                let note = index == 0
+                    ? nil
+                    : "Primary feed did not answer with a feed — using \(url.host ?? candidate)."
                 return SourceLoadResult(articles: articles, note: note)
             } catch {
                 lastError = error
@@ -88,6 +90,27 @@ enum SourceLoader {
                                   resolvesOutbound: Bool = false) async throws -> [Article] {
         let data = try await HTTP.shared.feedData(from: url)
         let feed = try FeedParser.parse(data)
+
+        // **A parse that yields nothing is a failure, not an empty feed.**
+        //
+        // This was the quietest bug in the app. A host that answers a feed
+        // request with an anti-bot interstitial, a challenge page or a changed
+        // shape returns HTTP 200, so the fetch "succeeds"; the parse then finds
+        // no items and this returned an empty list as a *result*. The caller
+        // took that as the source's answer, stopped, and never tried either of
+        // the backup addresses — and because nothing threw, no error reached the
+        // screen. The section was simply empty, for a source that was working
+        // yesterday, with nothing anywhere to say why.
+        //
+        // An RSS feed with zero items is broken, not quiet. Throwing here sends
+        // the loader to the next address, and if all of them come back empty the
+        // message says that rather than showing silence.
+        guard !feed.items.isEmpty else {
+            let text = String(decoding: data.prefix(400), as: UTF8.self).lowercased()
+            throw text.contains("<html") || text.contains("<!doctype html")
+                ? FeedError.notAFeed
+                : FeedError.empty
+        }
 
         var articles = feed.items.prefix(limit).map {
             $0.article(sourceID: sourceID, siteLink: feed.siteLink, context: context)

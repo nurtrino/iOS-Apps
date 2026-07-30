@@ -35,7 +35,7 @@ from feed_reference import (  # noqa: E402
     summary_bullets, merge_articles,
     fred_rows, fred_observations, nearest_observation, percent_change,
     classifier_constants, classifier_prompt, parse_decisions, one_line,
-    youtube_id,
+    youtube_id, looks_like_html,
 )
 
 FAILURES = []
@@ -1419,6 +1419,28 @@ check("a channel page is not a video", youtube_id("https://www.youtube.com/@mark
 check("another host is not YouTube",
       youtube_id("https://vimeo.com/dQw4w9WgXcQ"), None)
 check("a bare string is not a link", youtube_id("dQw4w9WgXcQ"), None)
+
+
+# --- A feed that answers with something else ---------------------------------
+#
+# The quietest failure this app has had. A host that answers a feed request with
+# an anti-bot interstitial returns HTTP 200, so the fetch succeeds; the parse then
+# finds no items, and returning that as a *result* meant the loader stopped
+# without trying the backup addresses and without anything reaching the screen.
+# The section was just empty. An RSS feed with zero items is broken, not quiet.
+
+check("a challenge page is recognised",
+      looks_like_html("<!DOCTYPE html><html><head><title>Just a moment...</title>"), True)
+check("a plain html page is recognised", looks_like_html("<html><body>Blocked</body></html>"), True)
+check("an RSS document is not html",
+      looks_like_html('<?xml version="1.0"?><rss version="2.0"><channel>'), False)
+check("an Atom document is not html",
+      looks_like_html('<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">'), False)
+
+# Only the head is inspected: an article body may legitimately contain the word.
+check("html inside an article body is not a block",
+      looks_like_html('<?xml version="1.0"?><rss><channel><item><description>'
+                      + 'x' * 500 + '&lt;html&gt;</description></item></channel></rss>'), False)
 
 
 # --- Report -----------------------------------------------------------------

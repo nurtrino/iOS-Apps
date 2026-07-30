@@ -1401,3 +1401,15 @@ def _valid(candidate):
         return None
     allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
     return identifier if all(character in allowed for character in identifier) else None
+
+
+
+def looks_like_html(payload):
+    """Mirrors the check in SourceLoader.fetchFeed.
+
+    A host that answers a feed request with an interstitial returns HTTP 200, so
+    the only way to tell a block from a quiet feed is the payload. Only the head
+    is inspected — a real feed can contain the word "html" in an article body.
+    """
+    head = payload[:400].lower()
+    return "<html" in head or "<!doctype html" in head

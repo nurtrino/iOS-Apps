@@ -41,9 +41,13 @@ enum FeedError: LocalizedError, Equatable {
                 return "The source answered with \(code)."
             }
         case .notAFeed:
-            return "That address did not return a feed."
+            return "That address answered with a web page, not a feed — usually a block or a "
+                + "consent screen."
         case .empty:
-            return "The feed is empty."
+            // Reached when *every* address a source has parsed to nothing. An
+            // RSS feed with no items is broken rather than quiet, so this says
+            // what to do about it instead of describing the emptiness.
+            return "The feed answered but contained no items. The address may have moved."
         case .needsBridge:
             return "X needs a bridge. Set one up in Settings › X bridge."
         case .needsSteamLibrary:
