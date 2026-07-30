@@ -43,6 +43,7 @@
 		EB326896A36B94466CB2CA91 /* TelegramFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = B673B4713184D0E562A848CD /* TelegramFeed.swift */; };
 		88307C2EAFEDFABCE6055CFB /* TopicClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B59898DD6E4CA469F7A50F08 /* TopicClassifier.swift */; };
 		51426950CE9DD6833D2EFB4E /* TopicLexicon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF5F0575A8C2DB2B06F4DB6 /* TopicLexicon.swift */; };
+		06894752F64B65672E37B488 /* VideoEmbed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 144A164E02F3C93A0503C071 /* VideoEmbed.swift */; };
 		AD4D5F3BC0404E0E6E689705 /* XBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FC8589BB3EDAA099E107986 /* XBridge.swift */; };
 		99EA909A892950EF50D46169 /* XMLSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBD0E91008B37815522E1B0C /* XMLSanitizer.swift */; };
 		AD6B19744C0850CD4EABAF76 /* YouTubeLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9348074D00721471F76C0DC7 /* YouTubeLive.swift */; };
@@ -110,6 +111,7 @@
 		B673B4713184D0E562A848CD /* TelegramFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelegramFeed.swift; sourceTree = "<group>"; };
 		B59898DD6E4CA469F7A50F08 /* TopicClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicClassifier.swift; sourceTree = "<group>"; };
 		0FF5F0575A8C2DB2B06F4DB6 /* TopicLexicon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicLexicon.swift; sourceTree = "<group>"; };
+		144A164E02F3C93A0503C071 /* VideoEmbed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEmbed.swift; sourceTree = "<group>"; };
 		5FC8589BB3EDAA099E107986 /* XBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XBridge.swift; sourceTree = "<group>"; };
 		CBD0E91008B37815522E1B0C /* XMLSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XMLSanitizer.swift; sourceTree = "<group>"; };
 		9348074D00721471F76C0DC7 /* YouTubeLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeLive.swift; sourceTree = "<group>"; };
@@ -208,6 +210,7 @@
 				B673B4713184D0E562A848CD /* TelegramFeed.swift */,
 				B59898DD6E4CA469F7A50F08 /* TopicClassifier.swift */,
 				0FF5F0575A8C2DB2B06F4DB6 /* TopicLexicon.swift */,
+				144A164E02F3C93A0503C071 /* VideoEmbed.swift */,
 				5FC8589BB3EDAA099E107986 /* XBridge.swift */,
 				CBD0E91008B37815522E1B0C /* XMLSanitizer.swift */,
 				9348074D00721471F76C0DC7 /* YouTubeLive.swift */,
@@ -380,6 +383,7 @@
 				EB326896A36B94466CB2CA91 /* TelegramFeed.swift in Sources */,
 				88307C2EAFEDFABCE6055CFB /* TopicClassifier.swift in Sources */,
 				51426950CE9DD6833D2EFB4E /* TopicLexicon.swift in Sources */,
+				06894752F64B65672E37B488 /* VideoEmbed.swift in Sources */,
 				AD4D5F3BC0404E0E6E689705 /* XBridge.swift in Sources */,
 				99EA909A892950EF50D46169 /* XMLSanitizer.swift in Sources */,
 				AD6B19744C0850CD4EABAF76 /* YouTubeLive.swift in Sources */,

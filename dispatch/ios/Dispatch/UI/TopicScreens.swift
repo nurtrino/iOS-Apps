@@ -101,16 +101,26 @@ struct PoliticsScreen: View {
 struct EconomicsScreen: View {
 
     @EnvironmentObject private var markets: MarketStore
+    @EnvironmentObject private var live: LiveStore
     @EnvironmentObject private var catalog: CatalogStore
     @EnvironmentObject private var feed: FeedStore
 
     @State private var webLink: WebLink?
+    @State private var playing: LivePlayback?
     @State private var path = NavigationPath()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack(path: $path) {
             TopicFeedList(topic: .economics, webLink: $webLink) {
+                // Above the prices for the same reason it is above the news on
+                // War: when something is happening, the coverage of it beats a
+                // number that already moved.
+                LiveRail(topic: .economics, playing: $playing, webLink: $webLink)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+
                 VStack(alignment: .leading, spacing: 0) {
                     MarketStrip()
                     CalendarStrip()
@@ -132,9 +142,16 @@ struct EconomicsScreen: View {
         }
         .tint(TopicTheme.accent(.economics))
         .sheet(item: $webLink) { SafariSheet(url: $0.url).ignoresSafeArea() }
-        .task { await markets.refresh() }
+        .sheet(item: $playing) { LivePlayerSheet(channel: $0.channel, state: $0.state) }
+        .task {
+            await markets.refresh()
+            await live.refresh()
+        }
         .onChange(of: scenePhase) { phase in
-            if phase == .active { Task { await markets.refresh(force: true) } }
+            if phase == .active {
+                Task { await markets.refresh(force: true) }
+                Task { await live.refresh(force: true) }
+            }
         }
     }
 

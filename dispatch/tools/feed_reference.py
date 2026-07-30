@@ -1360,3 +1360,44 @@ def parse_decisions(text):
         if word in DECISION_WORDS:
             out[int(digits)] = word
     return out
+
+
+
+# --- Videos in an article ---------------------------------------------------
+#
+# A YouTube id turns up in five shapes and matching only "watch?v=" is why an
+# embedded player looks broken on half the posts that have one.
+
+def youtube_id(text):
+    """Mirrors VideoEmbedFinder.youtubeID."""
+    if "//" not in text:
+        return None
+    rest = text.split("//", 1)[1]
+    host = rest.split("/")[0].split("?")[0].lower()
+    if host.startswith("www."):
+        host = host[4:]
+    after = rest[len(rest.split("/")[0]):]
+    path_part = after.split("?")[0]
+    query = after.split("?", 1)[1] if "?" in after else ""
+
+    if host == "youtu.be":
+        return _valid(path_part.lstrip("/"))
+    if host not in ("youtube.com", "m.youtube.com", "youtube-nocookie.com"):
+        return None
+    if path_part == "/watch":
+        for pair in query.split("&"):
+            if pair.startswith("v="):
+                return _valid(pair[2:])
+        return None
+    for prefix in ("/embed/", "/live/", "/shorts/", "/v/"):
+        if path_part.startswith(prefix):
+            return _valid(path_part[len(prefix):])
+    return None
+
+
+def _valid(candidate):
+    identifier = candidate.split("?")[0]
+    if len(identifier) != 11:
+        return None
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+    return identifier if all(character in allowed for character in identifier) else None

@@ -164,7 +164,19 @@ final class FeedStore: ObservableObject {
 
             do {
                 let decisions = try await ClassifierAPI.classify(titles: batch.map(\.title), key: key)
+
+                // A sanity check on the answer as a whole. "Belongs nowhere" is a
+                // rare verdict on a news wire, so a batch that comes back mostly
+                // "none" is far more likely to be a bad reply than forty
+                // genuinely off-topic headlines — and acting on it hides most of
+                // a source at once, which is exactly the failure this feature was
+                // added to end. The sections in such a batch are still used; only
+                // the hiding is refused.
+                let unplaced = decisions.values.filter { $0 == .unplaced }.count
+                let distrusted = unplaced * 2 > batch.count
+
                 for (offset, decision) in decisions {
+                    if distrusted, decision == .unplaced { continue }
                     guard batch.indices.contains(offset) else { continue }
                     let entry = batch[offset]
                     let stored: String
@@ -356,7 +368,16 @@ final class FeedStore: ObservableObject {
     /// One topic's articles: every source that reaches it, filtered to the ones
     /// the classifier actually filed there, merged and newest first.
     func articles(for topic: Topic, from sources: [Source]) -> [Article] {
-        var seen = Set<String>()
+        // Which source claimed each key, not merely whether one did.
+        //
+        // Deduplication exists to fold *one story carried by two outlets* into
+        // one row. Two posts from the same outlet are two posts, and collapsing
+        // them was a way to lose most of a wire silently: an aggregator's link is
+        // rewritten to the article it points at, so anything that made two of its
+        // items resolve to the same address — a site-wide link in the template, a
+        // pair of posts about the same piece — deleted all but the first from
+        // every section, while the source's own screen still listed them.
+        var claimedBy: [String: String] = [:]
         var merged: [Article] = []
 
         for source in sources {
@@ -368,7 +389,8 @@ final class FeedStore: ObservableObject {
                 guard let verdict = verdicts[article.id], verdict.topic == topic else { continue }
                 // Source order decides which copy of a cross-posted story wins,
                 // and source order is the user's to set.
-                guard seen.insert(article.dedupeKey).inserted else { continue }
+                if let owner = claimedBy[article.dedupeKey], owner != source.id { continue }
+                claimedBy[article.dedupeKey] = source.id
                 merged.append(article)
             }
         }
@@ -402,6 +424,17 @@ final class FeedStore: ObservableObject {
                 lines.append("\(source.name): \(message)")
             } else if let note = noteBySource[source.id] {
                 lines.append("\(source.name): \(note)")
+            }
+
+            // Hidden stories are never silent. A source that skips what fits
+            // nowhere can hide a lot of itself if the filing goes wrong, and the
+            // only symptom is a section that looks quiet — so the count says so.
+            let hidden = (articlesBySource[source.id] ?? [])
+                .filter { verdicts[$0.id]?.topic == nil }
+                .count
+            if hidden > 0 {
+                lines.append("\(source.name): \(hidden) filed in no section — see the source's "
+                             + "own screen")
             }
         }
         return lines

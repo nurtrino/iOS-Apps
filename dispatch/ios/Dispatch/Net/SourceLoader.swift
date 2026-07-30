@@ -97,6 +97,9 @@ enum SourceLoader {
         // Taking it here costs nothing and means the common case never needs
         // the per-tap fetch in `LinkResolver`.
         if resolvesOutbound {
+            var candidates: [Int: URL] = [:]
+            var occurrences: [String: Int] = [:]
+
             for index in articles.indices {
                 guard let permalink = articles[index].link,
                       let body = articles[index].bodyHTML,
@@ -104,7 +107,19 @@ enum SourceLoader {
                                                            relativeTo: permalink,
                                                            excludingHost: permalink.host)
                 else { continue }
-                await LinkResolver.shared.remember(outbound, for: permalink)
+                candidates[index] = outbound
+                occurrences[outbound.absoluteString, default: 0] += 1
+            }
+
+            for (index, outbound) in candidates {
+                // A URL that shows up under more than one headline is not those
+                // headlines' article — it is something in the template, a
+                // sponsor, or a channel every post embeds. Rewriting several
+                // items to one address makes them collide on identity, and
+                // collapsing a wire down to one row is a far worse failure than
+                // an unresolved link that still opens the right page.
+                guard occurrences[outbound.absoluteString] == 1 else { continue }
+                await LinkResolver.shared.remember(outbound, for: articles[index].link!)
                 articles[index].link = outbound
             }
         }

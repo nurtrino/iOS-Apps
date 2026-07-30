@@ -20,6 +20,7 @@ struct ArticleScreen: View {
     @State private var isParsing = true
     @State private var webLink: WebLink?
     @State private var video: Article?
+    @State private var embedRefused = false
 
     private var source: Source? { catalog.source(id: article.sourceID) }
 
@@ -102,24 +103,54 @@ struct ArticleScreen: View {
         .padding(.top, 8)
     }
 
-    /// Plays a post whose content *is* a video.
+    /// The video an article is about, playing in the article.
     ///
-    /// Telegram serves video posts as a plain MP4 on its CDN with no signing, so
-    /// where a feed carries one there is no reason to bounce out to a web page
-    /// for it. The dedicated wire block that used to own this has gone; the
-    /// reader is where it belongs anyway, since any source can carry one.
+    /// A link aggregator's post is often a video with a sentence under it, and
+    /// opening that as a web page means a cookie banner, a consent dialog and
+    /// then a player, for thirty seconds of footage. So the video plays here.
+    ///
+    /// A YouTube embed can still be refused — a channel can switch embedding off
+    /// and YouTube enforces it server-side — which is why the player reports its
+    /// own failure rather than showing a black rectangle, and the fallback is one
+    /// tap to the real page.
     @ViewBuilder
     private var videoButton: some View {
-        if article.videoURL != nil {
-            Button {
-                video = article
-            } label: {
-                Label("Play video", systemImage: "play.circle.fill")
-                    .frame(maxWidth: .infinity)
+        if let embed {
+            if let id = embed.youtubeID, !embedRefused {
+                YouTubePlayer(videoID: id) { embedRefused = true }
+                    .frame(height: 210)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else if embed.fileURL != nil {
+                Button {
+                    video = article
+                } label: {
+                    Label("Play video", systemImage: "play.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Palette.accent)
+            } else if let watch = embed.watchURL {
+                VStack(spacing: 6) {
+                    Text("This channel does not allow embedded playback.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Button {
+                        webLink = WebLink(url: watch)
+                    } label: {
+                        Label("Watch on YouTube", systemImage: "play.rectangle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Palette.accent)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Palette.accent)
         }
+    }
+
+    private var embed: VideoEmbed? {
+        VideoEmbedFinder.find(link: article.link,
+                              bodyHTML: article.bodyHTML,
+                              fileURL: article.videoURL)
     }
 
     /// Why this story is in the section it is in.

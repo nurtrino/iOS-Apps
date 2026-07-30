@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The row of stream cards across the top of the War screen.
+/// The row of stream cards across the top of a section.
 ///
 /// **Only what is actually live.** An off-air card is a placeholder, and four
 /// placeholders across the top of a monitoring screen push the news down for
@@ -12,6 +12,10 @@ import SwiftUI
 /// question rather than reading the news.
 struct LiveRail: View {
 
+    /// Which section's channels this rail shows. War has the breaking-news
+    /// streams; Markets has the rolling finance channels.
+    var topic: Topic = .war
+
     @EnvironmentObject private var live: LiveStore
 
     @Binding var playing: LivePlayback?
@@ -22,7 +26,7 @@ struct LiveRail: View {
     /// An X channel can never appear here, since there is no unauthenticated
     /// way to know whether one is live — those stay in More › Streams as a
     /// link out rather than sitting on the news screen saying nothing.
-    private var visibleChannels: [LiveChannel] { live.liveNow }
+    private var visibleChannels: [LiveChannel] { live.liveNow.filter { $0.topic == topic } }
 
     var body: some View {
         if !visibleChannels.isEmpty {

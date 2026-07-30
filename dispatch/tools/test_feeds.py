@@ -35,6 +35,7 @@ from feed_reference import (  # noqa: E402
     summary_bullets, merge_articles,
     fred_rows, fred_observations, nearest_observation, percent_change,
     classifier_constants, classifier_prompt, parse_decisions, one_line,
+    youtube_id,
 )
 
 FAILURES = []
@@ -1387,6 +1388,37 @@ check("trailing prose is ignored",
 check("a whole batch parses",
       parse_decisions("1. politics\n2. war\n3. economics\n4. none\n5. politics"),
       {1: "politics", 2: "war", 3: "economics", 4: "none", 5: "politics"})
+
+
+# --- Videos in an article ----------------------------------------------------
+#
+# An aggregator's post is often a video with a sentence under it, and the reader
+# plays it in place rather than sending you to a consent dialog. All five link
+# shapes below appear in real feeds; matching only the first is why an embedded
+# player looks broken on half the posts that have one.
+
+check("a watch link", youtube_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "dQw4w9WgXcQ")
+check("a short link", youtube_id("https://youtu.be/dQw4w9WgXcQ"), "dQw4w9WgXcQ")
+check("an iframe embed", youtube_id("https://www.youtube.com/embed/dQw4w9WgXcQ"), "dQw4w9WgXcQ")
+check("a live link", youtube_id("https://www.youtube.com/live/dQw4w9WgXcQ"), "dQw4w9WgXcQ")
+check("a short-form link", youtube_id("https://www.youtube.com/shorts/dQw4w9WgXcQ"), "dQw4w9WgXcQ")
+check("the no-cookie domain",
+      youtube_id("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"), "dQw4w9WgXcQ")
+check("a mobile link", youtube_id("https://m.youtube.com/watch?v=dQw4w9WgXcQ"), "dQw4w9WgXcQ")
+
+# Tracking parameters ride along on nearly every shared link.
+check("trailing parameters are ignored",
+      youtube_id("https://youtu.be/dQw4w9WgXcQ?t=42"), "dQw4w9WgXcQ")
+check("a watch link with extra parameters",
+      youtube_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ&feature=share"), "dQw4w9WgXcQ")
+
+# An id is eleven URL-safe characters. Anything else would build a player that
+# loads nothing, which looks like the feature being broken.
+check("a truncated id is refused", youtube_id("https://youtu.be/short"), None)
+check("a channel page is not a video", youtube_id("https://www.youtube.com/@markets"), None)
+check("another host is not YouTube",
+      youtube_id("https://vimeo.com/dQw4w9WgXcQ"), None)
+check("a bare string is not a link", youtube_id("dQw4w9WgXcQ"), None)
 
 
 # --- Report -----------------------------------------------------------------

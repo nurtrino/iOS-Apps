@@ -122,17 +122,18 @@ struct Source: Identifiable, Codable, Hashable {
     /// wrapping somebody else's link. See `LinkResolver`.
     var resolvesOutboundLink: Bool
 
-    /// Drop a story the classifier cannot place, instead of filing it under
-    /// `fixedTopic`.
+    /// Let the model hide a story it judges to belong in no section.
     ///
-    /// This is the difference between a general outlet and a link aggregator.
-    /// ZeroHedge writes about markets even when no term lands, so its default is
-    /// a fair guess. Citizen Free Press posts dozens of items a day and a
-    /// fraction of them are a bear in a supermarket — filing those under Politics
-    /// does not make them politics, it makes Politics wrong, and the guess is
-    /// invisible because a section full of noise looks the same as a section
-    /// full of news. Dropped stories are not deleted: they are still on the
-    /// source's own screen and in Search, just not in a topic.
+    /// **Off by default, including for the aggregator this was written for.** A
+    /// section holding the odd sports headline is a small, visible annoyance. A
+    /// section quietly missing most of a source is neither small nor visible, and
+    /// that is what shipping this on by default produced. It stays as a toggle
+    /// because the intent is right; it is not a default because the failure is
+    /// asymmetric.
+    ///
+    /// Hidden stories are never deleted — they stay on the source's own screen
+    /// and in Search — and the count now appears in the advisory line above the
+    /// list, so a section cannot lose stories without saying so.
     var dropsUnsortable: Bool
 
     var isEnabled: Bool
@@ -264,7 +265,6 @@ enum SourceCatalog {
             style: .wire,
             prefersWebPage: true,
             resolvesOutboundLink: true,
-            dropsUnsortable: true,
             isBuiltIn: true
         ),
 

@@ -139,6 +139,13 @@ struct LiveChannel: Identifiable, Codable, Hashable {
     /// Where to send someone when the app cannot play it itself.
     var externalHandle: String
     var schedule: LiveSchedule?
+    /// Which section's rail this appears in.
+    ///
+    /// War was the only one with a rail when this shipped, so the topic was
+    /// implicit. Markets wants one too — a rolling finance channel is the same
+    /// idea as a rolling war channel, and for the same reason: when something is
+    /// happening you want the coverage, not a headline about it an hour later.
+    var topic: Topic
     var isEnabled: Bool
 
     init(id: String,
@@ -148,6 +155,7 @@ struct LiveChannel: Identifiable, Codable, Hashable {
          reference: String,
          externalHandle: String = "",
          schedule: LiveSchedule? = nil,
+         topic: Topic = .war,
          isEnabled: Bool = true) {
         self.id = id
         self.name = name
@@ -156,7 +164,25 @@ struct LiveChannel: Identifiable, Codable, Hashable {
         self.reference = reference
         self.externalHandle = externalHandle
         self.schedule = schedule
+        self.topic = topic
         self.isEnabled = isEnabled
+    }
+
+    /// Older stored copies have no topic. Defaulting to War preserves what those
+    /// installs already showed, and the Markets channels arrive as new ids.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        blurb = (try? container.decode(String.self, forKey: .blurb)) ?? ""
+        platform = (try? container.decode(LivePlatform.self, forKey: .platform)) ?? .youtube
+        reference = (try? container.decode(String.self, forKey: .reference)) ?? ""
+        externalHandle = (try? container.decode(String.self, forKey: .externalHandle)) ?? ""
+        schedule = try? container.decode(LiveSchedule.self, forKey: .schedule)
+        topic = (try? container.decode(Topic.self, forKey: .topic))
+            ?? LiveCatalog.defaults.first { $0.id == id }?.topic
+            ?? .war
+        isEnabled = (try? container.decode(Bool.self, forKey: .isEnabled)) ?? true
     }
 
     /// Channels with no schedule are checked whenever the screen is open;
@@ -209,6 +235,43 @@ enum LiveCatalog {
             // actually decides whether the card says LIVE.
             schedule: LiveSchedule.easternNightly
         ),
+        // --- Markets ---------------------------------------------------------
+        //
+        // Bloomberg Television runs its channel free and unencrypted on YouTube,
+        // twenty-four hours a day. It is the closest thing to "Bloomberg on in
+        // the corner" that costs nothing and needs no account, which is exactly
+        // what a markets section wants during a selloff.
+        LiveChannel(
+            id: "bloomberg-tv",
+            name: "Bloomberg Television",
+            blurb: "Rolling markets coverage, 24/7",
+            platform: .youtube,
+            reference: "@markets",
+            externalHandle: "markets",
+            topic: .economics
+        ),
+        // A second one, because a single stream going dark leaves the section
+        // with an empty rail and no explanation.
+        LiveChannel(
+            id: "yahoo-finance",
+            name: "Yahoo Finance",
+            blurb: "Market open to close",
+            platform: .youtube,
+            reference: "@YahooFinance",
+            externalHandle: "YahooFinance",
+            topic: .economics
+        ),
+        LiveChannel(
+            id: "schwab-network",
+            name: "Schwab Network",
+            blurb: "Trading day coverage",
+            platform: .youtube,
+            reference: "@SchwabNetwork",
+            externalHandle: "SchwabNetwork",
+            topic: .economics,
+            isEnabled: false
+        ),
+
         LiveChannel(
             id: "nawfal-x",
             name: "Mario Nawfal on X",
