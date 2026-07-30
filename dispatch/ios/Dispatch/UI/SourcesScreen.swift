@@ -156,125 +156,13 @@ struct SourceEditor: View {
                 Text(endpointHelp)
             }
 
-            Section {
-                Picker("Topic", selection: $source.topicMode) {
-                    ForEach(TopicMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-
-                Picker(source.topicMode == .fixed ? "Files under" : "When unsure, file under",
-                       selection: $source.fixedTopic) {
-                    ForEach(Topic.allCases) { topic in
-                        Label(topic.title, systemImage: topic.systemImage).tag(topic)
-                    }
-                }
-
-                if source.topicMode == .classified {
-                    Picker("Usually about", selection: Binding(
-                        get: { source.topicPrior ?? source.fixedTopic },
-                        set: { source.topicPrior = $0 }
-                    )) {
-                        ForEach(Topic.classifiable) { topic in
-                            Text(topic.title).tag(topic)
-                        }
-                    }
-                }
-
-                Picker("Row style", selection: $source.style) {
-                    ForEach(SourceStyle.allCases) { style in
-                        Text(style.title).tag(style)
-                    }
-                }
-
-                if source.topicMode == .classified {
-                    Toggle("Skip stories that fit nowhere", isOn: $source.dropsUnsortable)
-                }
-
-                Toggle("Open the web page", isOn: $source.prefersWebPage)
-
-                Toggle("Follow to the linked article", isOn: $source.resolvesOutboundLink)
-
-                Toggle("Enabled", isOn: $source.isEnabled)
-            } header: {
-                Text("Filing")
-            } footer: {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(source.topicMode == .fixed
-                         ? "Everything from this source goes to \(source.fixedTopic.title). Right for a "
-                           + "source that only ever publishes one kind of news."
-                         : "Each story is scored against the War, Politics and Markets vocabularies "
-                           + "and filed by whichever wins. “Usually about” breaks ties.")
-
-                    Text("“Open the web page” skips the reader — right for a link aggregator, "
-                         + "whose items are pointers to somebody else's article rather than "
-                         + "articles of their own.")
-
-                    Text("“Follow to the linked article” goes one hop further, past the "
-                         + "aggregator's own stub page to the article it points at. Without it "
-                         + "you land on a headline with a “Go To Article” link under it.")
-
-                    if source.topicMode == .classified {
-                        Text("“Skip stories that fit nowhere” drops a story when nothing in it "
-                             + "matched any of the three vocabularies, instead of filing it under "
-                             + "“when unsure”. Right for an aggregator that posts sport and "
-                             + "celebrity next to the news; wrong for an outlet where the default "
-                             + "is a fair guess. Skipped stories are still on this source's own "
-                             + "screen and in Search.")
-                    }
-                }
-            }
+            filingSection
 
             if source.kind != .steam {
-                Section {
-                    ForEach(source.fallbackFeeds, id: \.self) { url in
-                        Text(url)
-                            .font(.system(size: 13))
-                            .lineLimit(2)
-                    }
-                    .onDelete { offsets in
-                        source.fallbackFeeds.remove(atOffsets: offsets)
-                    }
-
-                    HStack {
-                        TextField("Add a backup feed URL", text: $fallbackDraft)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .keyboardType(.URL)
-                        Button("Add") {
-                            let trimmed = fallbackDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                            guard !trimmed.isEmpty else { return }
-                            source.fallbackFeeds.append(trimmed)
-                            fallbackDraft = ""
-                        }
-                        .disabled(fallbackDraft.trimmingCharacters(in: .whitespaces).isEmpty)
-                    }
-                } header: {
-                    Text("Backup feeds")
-                } footer: {
-                    Text("Tried in order when the address above cannot be reached. For an X "
-                         + "source with no bridge configured, these are used directly.")
-                }
+                backupSection
             }
 
-            Section {
-                Button {
-                    Task { await test() }
-                } label: {
-                    HStack {
-                        Label("Test this source", systemImage: "checkmark.seal")
-                        Spacer()
-                        if isTesting { ProgressView() }
-                    }
-                }
-                .disabled(isTesting)
-
-                if let testResult {
-                    Text(testResult)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                }
-            }
+            testSection
 
             Section {
                 if source.isBuiltIn {
@@ -346,6 +234,141 @@ struct SourceEditor: View {
         case .telegram: return !TelegramFeed.normalizeChannel(source.endpoint).isEmpty
         case .x: return !XBridge.normalizeHandle(source.endpoint).isEmpty
         }
+    }
+
+    private var backupSection: some View {
+        Section {
+            ForEach(source.fallbackFeeds, id: \.self) { url in
+                Text(url)
+                    .font(.system(size: 13))
+                    .lineLimit(2)
+            }
+            .onDelete { offsets in
+                source.fallbackFeeds.remove(atOffsets: offsets)
+            }
+
+            HStack {
+                TextField("Add a backup feed URL", text: $fallbackDraft)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                Button("Add") {
+                    let trimmed = fallbackDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    source.fallbackFeeds.append(trimmed)
+                    fallbackDraft = ""
+                }
+                .disabled(fallbackDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        } header: {
+            Text("Backup feeds")
+        } footer: {
+            Text("Tried in order when the address above cannot be reached. For an X "
+                 + "source with no bridge configured, these are used directly.")
+        }
+    }
+
+    private var testSection: some View {
+        Section {
+            Button {
+                Task { await test() }
+            } label: {
+                HStack {
+                    Label("Test this source", systemImage: "checkmark.seal")
+                    Spacer()
+                    if isTesting { ProgressView() }
+                }
+            }
+            .disabled(isTesting)
+
+            if let testResult {
+                Text(testResult)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// Extracted from `body` rather than inlined.
+    ///
+    /// Two pickers, four toggles and a footer of conditional prose is enough for
+    /// the Swift type checker to give up on the whole `Form` — it did, on CI,
+    /// twice. Splitting the section out and building its footer as a plain
+    /// `String` array keeps each expression small enough to solve.
+    private var filingSection: some View {
+        Section {
+            Picker("Topic", selection: $source.topicMode) {
+                ForEach(TopicMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+
+            Picker(source.topicMode == .fixed ? "Files under" : "When unsure, file under",
+                   selection: $source.fixedTopic) {
+                ForEach(Topic.allCases) { topic in
+                    Label(topic.title, systemImage: topic.systemImage).tag(topic)
+                }
+            }
+
+            if source.topicMode == .classified {
+                Picker("Usually about", selection: priorBinding) {
+                    ForEach(Topic.classifiable) { topic in
+                        Text(topic.title).tag(topic)
+                    }
+                }
+
+                Toggle("Skip stories that fit nowhere", isOn: $source.dropsUnsortable)
+            }
+
+            Picker("Row style", selection: $source.style) {
+                ForEach(SourceStyle.allCases) { style in
+                    Text(style.title).tag(style)
+                }
+            }
+
+            Toggle("Open the web page", isOn: $source.prefersWebPage)
+            Toggle("Follow to the linked article", isOn: $source.resolvesOutboundLink)
+            Toggle("Enabled", isOn: $source.isEnabled)
+        } header: {
+            Text("Filing")
+        } footer: {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(filingHelp, id: \.self) { paragraph in
+                    Text(paragraph)
+                }
+            }
+        }
+    }
+
+    private var priorBinding: Binding<Topic> {
+        Binding(get: { source.topicPrior ?? source.fixedTopic },
+                set: { source.topicPrior = $0 })
+    }
+
+    private var filingHelp: [String] {
+        var lines: [String] = []
+
+        if source.topicMode == .fixed {
+            lines.append("Everything from this source goes to \(source.fixedTopic.title). "
+                         + "Right for a source that only ever publishes one kind of news.")
+        } else {
+            lines.append("Each story is scored against the War, Politics and Markets "
+                         + "vocabularies and filed by whichever wins. “Usually about” breaks a "
+                         + "tie between two that both scored.")
+            lines.append("“Skip stories that fit nowhere” drops a story when nothing in it "
+                         + "matched any of the three vocabularies, instead of filing it under "
+                         + "“when unsure”. Right for an aggregator that posts sport and celebrity "
+                         + "next to the news; wrong for an outlet whose default is a fair guess. "
+                         + "Skipped stories are still on this source's own screen and in Search.")
+        }
+
+        lines.append("“Open the web page” skips the reader — right for a link aggregator, whose "
+                     + "items are pointers to somebody else's article rather than articles of "
+                     + "their own.")
+        lines.append("“Follow to the linked article” goes one hop further, past the aggregator's "
+                     + "own stub page to the article it points at. Without it you land on a "
+                     + "headline with a “Go To Article” link under it.")
+        return lines
     }
 
     private var endpointHelp: String {
