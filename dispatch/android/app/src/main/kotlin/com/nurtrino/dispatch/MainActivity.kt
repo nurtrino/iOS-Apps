@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -161,6 +162,10 @@ fun DispatchApp() {
     }
 }
 
+// Material3's top app bar is still behind an opt-in. Annotated here rather than
+// suppressed project-wide, so the next experimental API someone reaches for is a
+// decision rather than a silence.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TopicBar(topic: Topic, model: FeedViewModel) {
     TopAppBar(
