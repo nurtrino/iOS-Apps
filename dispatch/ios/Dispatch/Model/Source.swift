@@ -261,7 +261,15 @@ enum SourceCatalog {
             topicMode: .classified,
             fixedTopic: .politics,
             topicPrior: .politics,
-            fallbackFeeds: ["https://citizenfreepress.com/feed/rss/"],
+            // Three addresses for one WordPress install. `?feed=rss2` is the
+            // query-string form every WordPress serves regardless of permalink
+            // settings, and it is worth having because a block is often on the
+            // *path*: a WAF rule or a cache rule that refuses /feed/ will happily
+            // serve the same bytes from the query form.
+            fallbackFeeds: [
+                "https://citizenfreepress.com/feed/rss/",
+                "https://citizenfreepress.com/?feed=rss2",
+            ],
             style: .wire,
             prefersWebPage: true,
             resolvesOutboundLink: true,
