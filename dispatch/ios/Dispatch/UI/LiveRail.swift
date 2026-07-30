@@ -189,13 +189,13 @@ struct LiveCard: View {
         return "Off air"
     }
 
-    /// Opens the embedded player, which falls back to Safari on its own.
+    /// Opens the in-app player.
     ///
-    /// The embed cannot always play: a channel may switch embedding off, and
-    /// YouTube enforces that server-side. `LivePlayerSheet` listens for the
-    /// player's `onError` and offers Safari when it hears one, so the good case
-    /// stays in the app and the bad case is one tap rather than a black
-    /// rectangle.
+    /// A live YouTube stream plays in `LivePlayerSheet`, which recovers to
+    /// YouTube's real watch page inside the same web view if the embed is
+    /// refused — so it never leaves the app. The only thing that still opens
+    /// externally is a live X stream, which has no embeddable player at all;
+    /// there is no in-app option for it to fall short of.
     private func activate() {
         if isLive, let state, channel.platform == .youtube, state.videoID != nil {
             playing = LivePlayback(channel: channel, state: state)

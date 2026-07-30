@@ -151,12 +151,24 @@ section now opens with a spotlight button: the newest headline as a teaser, the
 unread count, and one tap into the raw stream — every post, newest first, no
 filing in between.
 
-**A post whose destination is a video plays the video.** A link wire's post is
-often a YouTube link with a sentence attached; the page around it is a consent
-wall and comments. So when the resolved destination is a video — any of the five
-YouTube URL shapes, or a direct file — the tap opens an embedded player in a
-sheet instead of Safari, with the refused-embedding fallback offering the real
-page. This applies in the topic lists and in the per-source stream alike.
+**A post whose destination is a video plays the video, in the app.** A link
+wire's post is often a YouTube link with a sentence attached; the page around it
+is a consent wall and comments. So when the resolved destination is a video —
+any of the five YouTube URL shapes, or a direct file — the tap opens a player in
+a sheet, in the topic lists and the per-source stream alike.
+
+**Video and live streams never fall back to Safari.** This took getting the
+diagnosis right. YouTube's embed error 150/153 is usually read as "the owner
+disabled embedding", but on iOS it is far more often *"embedder identity missing
+referrer"* — WKWebView does not send a `Referer` for a cross-origin iframe, so
+YouTube cannot verify the embedder and refuses. The player now sends what
+YouTube needs: a `<meta name="referrer">` policy, an `origin` player var, and a
+real mobile-Safari user agent, which is most of the fix. When a video is
+*genuinely* embedding-disabled or age-restricted, the fallback is not a browser —
+the same `WKWebView` loads YouTube's own watch page (`m.youtube.com/watch`),
+which is the real site rather than an embed, so the restriction does not apply
+and it plays. Nothing here ever opens Safari. (The one exception is a live *X*
+stream, which has no embeddable player of any kind.)
 
 A third rate problem is invisible rather than ugly. **A feed is a window, not an
 archive**: Citizen Free Press publishes dozens of items a day and its RSS holds a
