@@ -1,0 +1,45 @@
+name: Dispatch Android
+
+on:
+  push:
+    paths:
+      - 'dispatch/android/**'
+      - 'dispatch/tools/gen_lexicon_kt.py'
+      - '.github/workflows/dispatch-android.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The lexicon is generated from the iOS Swift. If someone edited the
+      # Kotlin by hand, or edited the Swift and forgot to regenerate, the two
+      # apps would file the same story differently and nothing would say so.
+      - name: Lexicon is in step with iOS
+        run: python3 dispatch/tools/gen_lexicon_kt.py --check
+
+      # Runs on any JVM, so this is also what runs locally during development.
+      - name: Core tests
+        working-directory: dispatch/android
+        run: gradle :core:test
+
+      # ANDROID_HOME is set on this runner, which is what makes settings.gradle
+      # include the app module at all.
+      - name: Assemble the APK
+        working-directory: dispatch/android
+        run: gradle :app:assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dispatch-apk
+          path: dispatch/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

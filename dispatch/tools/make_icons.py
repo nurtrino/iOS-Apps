@@ -478,6 +478,8 @@ def main():
     path = os.path.join(icon_dir, "AppIcon.png")
     size_bytes = write_png(path, 1024, 1024, pixels)
     print("AppIcon.png  1024x1024 RGB (no alpha)  %d bytes  from %s" % (size_bytes, origin))
+
+    write_android_icons(pixels)
     print("ground       #%02X%02X%02X" % ground)
     if luminance(bytes(accent), 0) < 140:
         print("accent       #%02X%02X%02X is the artwork's lightest colour, too dark to tint"
@@ -515,6 +517,28 @@ def dominant(pixels, width, height):
                 totals[channel] += pixels[index + channel]
             count += 1
     return tuple(total // count for total in totals)
+
+
+# Android wants the launcher icon at five densities. Same artwork, resampled
+# from the same 1024 master, so the two apps cannot end up with different icons
+# because someone exported twice.
+ANDROID_DENSITIES = [
+    ("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192),
+]
+
+
+def write_android_icons(master):
+    root = os.path.join(APP, "android", "app", "src", "main", "res")
+    if not os.path.isdir(os.path.dirname(root)):
+        return
+
+    total = 0
+    for name, size in ANDROID_DENSITIES:
+        directory = os.path.join(root, "mipmap-" + name)
+        os.makedirs(directory, exist_ok=True)
+        scaled = resample(master, 1024, 1024, size)
+        total += write_png(os.path.join(directory, "ic_launcher.png"), size, size, scaled)
+    print("ic_launcher   %d densities, %d bytes total" % (len(ANDROID_DENSITIES), total))
 
 
 def brightest(pixels, width, height):

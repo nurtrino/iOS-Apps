@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark, always. The app is a dark app on iOS and a white flash before
+         Compose draws is the only thing this theme is really for. -->
+    <style name="Theme.Dispatch" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ground</item>
+        <item name="android:statusBarColor">@color/ground</item>
+        <item name="android:navigationBarColor">@color/ground</item>
+    </style>
+</resources>
