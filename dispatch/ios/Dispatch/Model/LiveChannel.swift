@@ -172,7 +172,12 @@ struct LiveChannel: Identifiable, Codable, Hashable {
     /// installs already showed, and the Markets channels arrive as new ids.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
+        // Read into a local first. `LiveCatalog.defaults.first { $0.id == id }`
+        // below reads `id` inside a closure, and a closure in an initialiser
+        // captures `self` — which Swift refuses while any property is still
+        // uninitialised, however obviously safe the read looks.
+        let storedID = try container.decode(String.self, forKey: .id)
+        id = storedID
         name = try container.decode(String.self, forKey: .name)
         blurb = (try? container.decode(String.self, forKey: .blurb)) ?? ""
         platform = (try? container.decode(LivePlatform.self, forKey: .platform)) ?? .youtube
@@ -180,7 +185,7 @@ struct LiveChannel: Identifiable, Codable, Hashable {
         externalHandle = (try? container.decode(String.self, forKey: .externalHandle)) ?? ""
         schedule = try? container.decode(LiveSchedule.self, forKey: .schedule)
         topic = (try? container.decode(Topic.self, forKey: .topic))
-            ?? LiveCatalog.defaults.first { $0.id == id }?.topic
+            ?? LiveCatalog.defaults.first { $0.id == storedID }?.topic
             ?? .war
         isEnabled = (try? container.decode(Bool.self, forKey: .isEnabled)) ?? true
     }

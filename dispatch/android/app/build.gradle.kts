@@ -1,7 +1,10 @@
 plugins {
+    // Only the Android plugin carries its version here; the Kotlin ones are
+    // already on the classpath from the root build, and naming a version for a
+    // plugin that is already loaded is an error rather than a no-op.
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.compose.compiler)
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {

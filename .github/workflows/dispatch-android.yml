@@ -19,7 +19,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v4
+      # No setup-gradle: the repository carries a wrapper, and the point of a
+      # wrapper is that CI and a laptop run the same Gradle. The runner's own
+      # Gradle was two major versions ahead of the one this project is built
+      # with, which failed in ways that had nothing to do with the code.
 
       # The lexicon is generated from the iOS Swift. If someone edited the
       # Kotlin by hand, or edited the Swift and forgot to regenerate, the two
@@ -30,13 +33,13 @@ jobs:
       # Runs on any JVM, so this is also what runs locally during development.
       - name: Core tests
         working-directory: dispatch/android
-        run: gradle :core:test
+        run: ./gradlew :core:test
 
       # ANDROID_HOME is set on this runner, which is what makes settings.gradle
       # include the app module at all.
       - name: Assemble the APK
         working-directory: dispatch/android
-        run: gradle :app:assembleDebug --stacktrace
+        run: ./gradlew :app:assembleDebug --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
