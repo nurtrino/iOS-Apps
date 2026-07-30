@@ -258,3 +258,84 @@ struct LivePlayerSheet: View {
         .padding(16)
     }
 }
+
+/// One tapped video post, ready to play.
+struct EmbedPlayback: Identifiable {
+    let id = UUID()
+    let embed: VideoEmbed
+    let title: String
+}
+
+/// Plays the video a post is about, whatever hosts it.
+///
+/// This is what a tap on a video post opens instead of Safari. Half of what a
+/// link wire posts *is* a video — the page around it is a consent banner, a
+/// cookie wall and comments — so the app plays the video and skips the page.
+/// YouTube gets the official embed with the refused-embedding fallback;
+/// a direct file gets AVPlayer.
+struct VideoEmbedSheet: View {
+
+    let playback: EmbedPlayback
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var embedFailed = false
+    @State private var webLink: WebLink?
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                player
+
+                Text(playback.title)
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(16)
+
+                Spacer(minLength: 0)
+            }
+            .navigationTitle("Video")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .sheet(item: $webLink) { SafariSheet(url: $0.url).ignoresSafeArea() }
+    }
+
+    @ViewBuilder
+    private var player: some View {
+        if let fileURL = playback.embed.fileURL {
+            VideoPlayer(player: AVPlayer(url: fileURL))
+                .aspectRatio(16.0 / 9.0, contentMode: .fit)
+                .frame(maxWidth: .infinity)
+                .background(Color.black)
+        } else if let videoID = playback.embed.youtubeID, !embedFailed {
+            YouTubePlayer(videoID: videoID) { embedFailed = true }
+                .aspectRatio(16.0 / 9.0, contentMode: .fit)
+                .frame(maxWidth: .infinity)
+                .background(Color.black)
+        } else {
+            VStack(spacing: 10) {
+                Text("This channel does not allow embedded playback.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                if let watch = playback.embed.watchURL {
+                    Button {
+                        webLink = WebLink(url: watch)
+                    } label: {
+                        Label("Watch on YouTube", systemImage: "play.rectangle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .padding(.horizontal, 24)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 36)
+            .background(Color.black.opacity(0.85))
+        }
+    }
+}

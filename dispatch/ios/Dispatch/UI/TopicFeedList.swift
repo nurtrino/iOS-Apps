@@ -39,6 +39,9 @@ struct TopicFeedList<Header: View>: View {
 
     private var phase: LoadPhase { feed.phase(for: sources) }
 
+    /// A tapped video post, playing in a sheet rather than in Safari.
+    @State private var playingEmbed: EmbedPlayback?
+
     var body: some View {
         List {
             // Emitted straight into the List rather than wrapped in a Section
@@ -72,6 +75,7 @@ struct TopicFeedList<Header: View>: View {
                 .listRowBackground(Color.clear)
         }
         .listStyle(.plain)
+        .sheet(item: $playingEmbed) { VideoEmbedSheet(playback: $0) }
         .refreshable { await refresh(force: true) }
         // Switching to a tab asks that topic's sources whether they are stale.
         // Without this the only automatic refreshes were launch and returning
@@ -104,7 +108,17 @@ struct TopicFeedList<Header: View>: View {
                 Task {
                     let destination = await LinkResolver.shared.destination(for: article,
                                                                             source: source)
-                    webLink = WebLink(url: destination ?? link)
+                    let target = destination ?? link
+                    // A post whose destination is a video plays the video. The
+                    // page around a YouTube link is a consent wall and comments;
+                    // the wire posted it for the footage.
+                    if let embed = VideoEmbedFinder.find(link: target,
+                                                         bodyHTML: article.bodyHTML,
+                                                         fileURL: article.videoURL) {
+                        playingEmbed = EmbedPlayback(embed: embed, title: article.displayTitle)
+                    } else {
+                        webLink = WebLink(url: target)
+                    }
                 }
             } label: {
                 content

@@ -144,6 +144,20 @@ remains a source **kind**, so any channel can be added by hand in More › Sourc
 it is just not shipped as a default any more. A video post from one plays in the
 reader, where every source's video now does.
 
+**Citizen Free Press also gets a named door.** The classifier spreads its
+hundred-a-day across War, Politics and Markets — correct filing, but it means
+"just show me CFP" had no answer short of the management screens. The Politics
+section now opens with a spotlight button: the newest headline as a teaser, the
+unread count, and one tap into the raw stream — every post, newest first, no
+filing in between.
+
+**A post whose destination is a video plays the video.** A link wire's post is
+often a YouTube link with a sentence attached; the page around it is a consent
+wall and comments. So when the resolved destination is a video — any of the five
+YouTube URL shapes, or a direct file — the tap opens an embedded player in a
+sheet instead of Safari, with the refused-embedding fallback offering the real
+page. This applies in the topic lists and in the per-source stream alike.
+
 A third rate problem is invisible rather than ugly. **A feed is a window, not an
 archive**: Citizen Free Press publishes dozens of items a day and its RSS holds a
 fraction of them, so a refresh that replaced a source's list lost every story

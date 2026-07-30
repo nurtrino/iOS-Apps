@@ -72,9 +72,21 @@ struct PoliticsScreen: View {
     @State private var webLink: WebLink?
     @State private var path = NavigationPath()
 
+    /// The aggregator gets a named door at the top of the section. The
+    /// classifier spreads its hundred-a-day across three screens — which is
+    /// filing, not visibility — and "just show me CFP" deserves one tap.
+    static let spotlightSourceID = "citizenfreepress"
+
     var body: some View {
         NavigationStack(path: $path) {
             TopicFeedList(topic: .politics, webLink: $webLink) {
+                SourceSpotlight(sourceID: PoliticsScreen.spotlightSourceID) {
+                    path.append(SourceRef(id: PoliticsScreen.spotlightSourceID))
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+
                 BriefSection(topic: .politics)
 
                 TopicHeader(topic: .politics, subtitle: subtitle)
@@ -85,6 +97,7 @@ struct PoliticsScreen: View {
             .navigationTitle("Politics")
             .topicToolbar(.politics)
             .navigationDestination(for: Article.self) { ArticleScreen(article: $0) }
+            .navigationDestination(for: SourceRef.self) { SourceFeedScreen(sourceID: $0.id) }
         }
         .tint(TopicTheme.accent(.politics))
         .sheet(item: $webLink) { SafariSheet(url: $0.url).ignoresSafeArea() }

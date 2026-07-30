@@ -15,6 +15,7 @@ struct SourceFeedScreen: View {
     @EnvironmentObject private var steamLibrary: SteamLibraryStore
 
     @State private var webLink: WebLink?
+    @State private var playingEmbed: EmbedPlayback?
 
     private var source: Source? { catalog.source(id: sourceID) }
 
@@ -59,6 +60,7 @@ struct SourceFeedScreen: View {
             )
         }
         .sheet(item: $webLink) { SafariSheet(url: $0.url).ignoresSafeArea() }
+        .sheet(item: $playingEmbed) { VideoEmbedSheet(playback: $0) }
     }
 
     @ViewBuilder
@@ -73,13 +75,20 @@ struct SourceFeedScreen: View {
            let link = article.link {
             Button {
                 if settings.markReadOnOpen { read.markRead(article) }
-                // Resolved rather than opened directly: for an aggregator the
-                // link in the feed is a stub page, and the article is one hop
-                // further on. Cached, so this is instant after the first tap.
+                // Same routing as the topic lists: resolve the aggregator's
+                // stub to its destination, then play a video destination in
+                // place rather than opening the page around it.
                 Task {
                     let destination = await LinkResolver.shared.destination(for: article,
                                                                             source: source)
-                    webLink = WebLink(url: destination ?? link)
+                    let target = destination ?? link
+                    if let embed = VideoEmbedFinder.find(link: target,
+                                                         bodyHTML: article.bodyHTML,
+                                                         fileURL: article.videoURL) {
+                        playingEmbed = EmbedPlayback(embed: embed, title: article.displayTitle)
+                    } else {
+                        webLink = WebLink(url: target)
+                    }
                 }
             } label: {
                 content
@@ -205,5 +214,98 @@ private struct SteamCard: View {
         .frame(width: 190)
         .background(Palette.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+/// A named door into one source's raw stream.
+///
+/// This exists for the source you actually go looking for. Citizen Free Press
+/// posts a hundred links a day and the classifier spreads them across three
+/// sections — correct filing, but it means "just show me CFP" had no answer
+/// short of the management screens. This is that answer: one tap, every post,
+/// newest first, no filing in between. After a stretch where those stories were
+/// genuinely going missing, the guaranteed view is also the trust-restoring one.
+struct SourceSpotlight: View {
+
+    let sourceID: String
+    var onOpen: () -> Void
+
+    @EnvironmentObject private var catalog: CatalogStore
+    @EnvironmentObject private var feed: FeedStore
+    @EnvironmentObject private var read: ReadStore
+
+    private var source: Source? { catalog.source(id: sourceID) }
+    private var articles: [Article] { feed.articles(for: sourceID) }
+
+    private var newest: Article? {
+        articles.max { $0.sortDate < $1.sortDate }
+    }
+
+    var body: some View {
+        if let source {
+            Button(action: onOpen) {
+                HStack(spacing: 12) {
+                    Image(systemName: "dot.radiowaves.up.forward")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(TopicTheme.accent(source.fixedTopic))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(source.name.uppercased())
+                                .font(.system(size: 12, weight: .heavy))
+                                .tracking(0.8)
+                                .foregroundStyle(TopicTheme.accent(source.fixedTopic))
+
+                            let unread = read.unreadCount(in: articles)
+                            if unread > 0 {
+                                Text("\(unread)")
+                                    .font(.system(size: 10, weight: .bold).monospacedDigit())
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 1)
+                                    .background(TopicTheme.deep(source.fixedTopic), in: Capsule())
+                                    .foregroundStyle(TopicTheme.accent(source.fixedTopic))
+                            }
+                        }
+
+                        // The newest headline, so the door says whether anything
+                        // is behind it — a teaser beats a label.
+                        if let newest {
+                            HStack(spacing: 4) {
+                                Text(newest.displayTitle)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                if let age = newest.published?.feedAge {
+                                    Text(age)
+                                        .font(.system(size: 11).monospacedDigit())
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                        } else {
+                            Text("The raw stream — every post, unsorted")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+
+                    Spacer(minLength: 6)
+
+                    Text("\(articles.count)")
+                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(Palette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+        }
     }
 }
