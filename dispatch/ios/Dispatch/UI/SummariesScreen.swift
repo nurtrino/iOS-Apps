@@ -52,11 +52,10 @@ struct SummariesScreen: View {
     /// `Text` inside a ViewBuilder are what made SettingsScreen time out the
     /// type checker on CI.
     private var featureFooter: String {
-        "When this is on, the brief at the top of each section opens with a few bullets "
+        "The brief at the top of each section is this: a few bullets "
             + "written by Claude saying what just happened, generated from the newest "
-            + "headlines in that section — including the wires shown in their own block, "
-            + "since a frontline channel is the best material there is for what just "
-            + "happened.\n\n"
+            + "headlines in that section. With this off, or with no key saved, there is no "
+            + "brief anywhere in the app rather than an empty one.\n\n"
             + "What is sent to Anthropic: those headlines, their source names and their ages. "
             + "Nothing else — not article text, not what you read, not your Steam library. "
             + "A summary is only regenerated when the headlines change, a few times an hour "

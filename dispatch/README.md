@@ -197,10 +197,16 @@ directly underneath — the same words twice on one screen, and a wire having a 
 hour could fill all five slots with one thread. The list below is the list. The
 brief says what happened; scrolling says what else.
 
-What is left is two things. A **state line** of real fact where the topic has one
-— on Markets the actual index moves and whether a release has already landed
-today, which is the question that section gets asked at nine in the morning. And,
-by explicit opt-in, a written summary.
+**The whole block exists only when there is an Anthropic key.** Without one there
+is no brief anywhere in the app — not an empty header, not a state line on its
+own. The written summary is the section's reason to exist; the numbers beside it
+are context for that, and Markets already has the prices in a chart directly
+above. A header with nothing under it is furniture.
+
+With a key, it is two things: the bullets, and a **state line** of real fact where
+the topic has one — on Markets the actual index moves and whether a release has
+already landed today, which is the question that section gets asked at nine in the
+morning.
 
 **AI summaries.** Paste an Anthropic API key in Settings → AI summaries and the
 brief opens with a few bullets written by Claude (`claude-haiku-4-5`, over raw

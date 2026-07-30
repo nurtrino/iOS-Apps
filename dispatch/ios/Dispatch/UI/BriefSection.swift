@@ -1,13 +1,17 @@
 import SwiftUI
 
-/// The catch-up block at the top of a topic.
+/// The written brief at the top of a topic.
 ///
-/// Two things, and the second one is optional. A **state line** built from real
-/// numbers where the topic has any — on Markets the actual index moves and
-/// whether a release has already landed today, which is the specific question
-/// that section gets asked at nine in the morning. And, when an Anthropic key is
-/// saved and the toggle is on, a **written summary**: a few bullets from the
-/// Claude API saying what just happened.
+/// **The whole block exists only when there is an Anthropic key.** Without one
+/// there is no brief anywhere in the app — not an empty header, not a state line
+/// on its own, nothing. The section's reason to exist is the written summary; the
+/// numbers beside it are context for that, and Markets already has the prices in
+/// a chart directly above. A header with nothing under it is furniture.
+///
+/// With a key and the toggle on: a few bullets from the Claude API saying what
+/// just happened, and a **state line** of real fact where the topic has one — on
+/// Markets the actual index moves and whether a release has already landed today,
+/// which is the specific question that section gets asked at nine in the morning.
 ///
 /// What it deliberately does *not* contain is headlines. It used to open with
 /// five of them, numbered, and they were the same stories as the list directly
@@ -16,10 +20,8 @@ import SwiftUI
 /// The brief says what happened; scrolling says what else.
 ///
 /// The summary reads the newest eight items in the window, capped at three per
-/// source so one busy channel cannot fill the prompt (see `SummaryStore` for
-/// what is sent and how rarely). No key, no network, or a failed request — the
-/// state line stands alone, and where a topic has no numbers either, the block
-/// is simply absent.
+/// source so one busy channel cannot fill the prompt (see `SummaryStore` for what
+/// is sent and how rarely).
 struct BriefSection: View {
 
     let topic: Topic
@@ -72,26 +74,31 @@ struct BriefSection: View {
         settings.aiSummaries && settings.hasAnthropicKey
     }
 
-    /// Whether the block has anything to say at all.
+    /// No key, no brief. Not a state line on its own, not an empty header.
     private var hasContent: Bool {
-        if wantsSummary && !summaryPool.isEmpty { return true }
-        return stateLine != nil
+        wantsSummary && !summaryPool.isEmpty
+    }
+
+    /// True while the first brief for this topic is still being written.
+    private var isAwaitingFirstBrief: Bool {
+        summaries.brief(for: topic) == nil && summaries.failure(for: topic) == nil
     }
 
     var body: some View {
         if settings.showBrief, hasContent {
             Section {
-                if wantsSummary, !summaryPool.isEmpty {
-                    summaryRow
-                        .listRowSeparator(.hidden)
-                        .task(id: SummaryStore.inputKey(for: summaryPool)) {
-                            await summaries.refreshIfNeeded(topic: topic,
-                                                            articles: summaryPool,
-                                                            headlines: headlines)
-                        }
-                }
+                summaryRow
+                    .listRowSeparator(.hidden)
+                    .task(id: SummaryStore.inputKey(for: summaryPool)) {
+                        await summaries.refreshIfNeeded(topic: topic,
+                                                        articles: summaryPool,
+                                                        headlines: headlines)
+                    }
 
-                if let state = stateLine {
+                // Held back until the bullets land: nothing sits under the
+                // summary before the summary exists, or the block reads as
+                // finished and then rearranges itself under your thumb.
+                if !isAwaitingFirstBrief, let state = stateLine {
                     Text(state)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(TopicTheme.accent(topic))
