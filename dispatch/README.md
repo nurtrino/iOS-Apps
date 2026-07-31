@@ -605,10 +605,21 @@ than replace so a fast wire does not lose stories, the browser user agent that
 stops Cloudflare returning 403, ids derived before any link rewriting, outbound
 link resolution for aggregators, and model decisions cached per article id.
 
-`.github/workflows/dispatch-android.yml` builds a **debug APK** and uploads it as
-a workflow artifact. Debug because the standard debug key is the only key that
-exists in a public repository: it installs from a file manager with "unknown
-sources" allowed, and it is not a Play Store artifact.
+`.github/workflows/dispatch-android.yml` builds a **debug APK** and publishes it
+to the rolling `latest` release as `Dispatch-debug.apk`, next to the iOS `.ipa`.
+It is also a workflow artifact, but that needs a GitHub login and an unzip; a
+release asset is a bare URL a phone's browser can install from, which for Android
+is the whole delivery mechanism. Debug because the standard debug key is the only
+key that exists in a public repository: it installs from a file manager with
+"unknown sources" allowed, and it is not a Play Store artifact.
+
+The workflow watches all of `dispatch/`, not just `dispatch/android/`. Scoped to
+the Android directory it stopped rebuilding while the shared lexicon and source
+catalog moved underneath it, so the published APK carried a fortnight-old
+classifier. `versionCode`/`versionName` come from the run number via
+`-PdispatchBuild=`, the build asserts with `aapt2 dump badging` that the stamp
+took, and the top bar shows `BuildConfig.VERSION_NAME` — the same three-part
+answer to "which build is on the phone" that the iOS side needed.
 
 **Not ported yet:** the brief, the live rail, Steam, the release calendar,
 per-source screens and settings. The Android app reads and files; the furniture

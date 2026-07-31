@@ -177,6 +177,16 @@ private fun TopicBar(topic: Topic, model: FeedViewModel) {
             )
         },
         actions = {
+            // Which build this is, on screen, always. There is no settings
+            // screen here to hide it in, and the iOS side spent days chasing a
+            // bug that was only ever "the phone is running an old install".
+            Text(
+                BuildConfig.VERSION_NAME,
+                fontSize = 11.sp,
+                color = Color(0xFF8A8A93),
+            )
+            Spacer(Modifier.size(8.dp))
+
             if (model.isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp).padding(end = 4.dp),

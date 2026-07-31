@@ -2,14 +2,28 @@ name: Dispatch Android
 
 on:
   push:
+    branches:
+      - main
+      - 'claude/**'
+    # Watches all of dispatch/, not only android/. The Kotlin app shares the
+    # lexicon and the source catalog with the iOS one, and while it was scoped
+    # to android/** the published APK silently fell behind by a dozen commits —
+    # the release said "Dispatch" and shipped a fortnight-old classifier.
     paths:
-      - 'dispatch/android/**'
-      - 'dispatch/tools/gen_lexicon_kt.py'
+      - 'dispatch/**'
       - '.github/workflows/dispatch-android.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+concurrency:
+  group: dispatch-android-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    name: Build debug .apk
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,10 +53,53 @@ jobs:
       # include the app module at all.
       - name: Assemble the APK
         working-directory: dispatch/android
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: ./gradlew :app:assembleDebug -PdispatchBuild=${{ github.run_number }} --stacktrace
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          SOURCE=$(find dispatch/android/app/build/outputs/apk/debug -name '*.apk' | head -1)
+          if [ -z "$SOURCE" ]; then
+            echo "::error::assembleDebug produced no .apk"
+            exit 1
+          fi
+          cp "$SOURCE" Dispatch-debug.apk
+          ls -l Dispatch-debug.apk
+          sha256sum Dispatch-debug.apk
+
+          # Prove the stamp took before shipping. aapt is on the image as part
+          # of the SDK build-tools; if it is not, the grep fails and so does
+          # the build, which is the correct outcome — an APK that cannot say
+          # which build it is does not get published.
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort | tail -1)
+          "$AAPT" dump badging Dispatch-debug.apk | head -1
+          "$AAPT" dump badging Dispatch-debug.apk \
+            | grep -q "versionCode='${{ github.run_number }}'" || {
+              echo "::error::the APK does not report versionCode=${{ github.run_number }} — the stamp did not take"
+              exit 1
+            }
 
       - uses: actions/upload-artifact@v4
         with:
           name: dispatch-apk
-          path: dispatch/android/app/build/outputs/apk/debug/*.apk
+          path: Dispatch-debug.apk
           if-no-files-found: error
+
+      # The artifact above needs a GitHub login, a trip into the run's summary
+      # page and an unzip. A release asset is a bare file at a stable URL that
+      # a phone's browser can install directly — which for an Android build is
+      # the entire delivery mechanism.
+      - name: Publish to rolling release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=latest
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "Latest build" \
+              --notes "Rolling builds of everything in this repo. The .ipa files are unsigned; sign before installing. The .apk is debug-signed." --latest || true
+          gh release upload "$TAG" Dispatch-debug.apk --clobber
+
+          gh release view "$TAG" --json assets \
+            --jq '.assets[] | "\(.name) \(.size) bytes updated \(.updatedAt)"'

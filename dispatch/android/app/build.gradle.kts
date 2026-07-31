@@ -25,8 +25,13 @@ extensions.configure<com.android.build.api.dsl.ApplicationExtension>("android") 
         // the few installs below Oreo is not a trade worth making here.
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Stamped by CI with the workflow run number. Hardcoding this is the
+        // mistake the iOS side already paid for: every build called itself
+        // "1.0 (1)", so "is the fix on your phone" had no answer and days of
+        // debugging went past an install nobody could date. A local build with
+        // no property set is build 0, which reads as "not from CI".
+        versionCode = (findProperty("dispatchBuild") as String? ?: "0").toInt()
+        versionName = "1.0." + (findProperty("dispatchBuild") as String? ?: "0")
     }
 
     buildTypes {
@@ -46,6 +51,9 @@ extensions.configure<com.android.build.api.dsl.ApplicationExtension>("android") 
 
     buildFeatures {
         compose = true
+        // Off by default since AGP 8. The top bar reads VERSION_NAME from it,
+        // which is the only way the running app can say which build it is.
+        buildConfig = true
     }
 
     packaging {
