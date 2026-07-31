@@ -133,19 +133,18 @@ def render(size):
     return pixels
 
 
-def has_flat_corners(pixels, size, ground=BACKGROUND):
-    """The corners must be the flat background, or iOS's mask will cut into
-    artwork that rounded itself.
+def has_dark_corners(pixels, size):
+    """The corners must be artwork, or iOS's mask will cut into the page.
 
-    Checked against whatever the artwork's own ground is, since a supplied image
-    brings its own. A resample can move a corner byte by one, so this allows a
-    hair of tolerance rather than demanding an exact match.
+    An icon that rounded its own corners and sat on white keeps that white
+    outside its curve and inside Apple's: four pale wedges around a dark square.
+    After the page removal the corners hold the plate's own colour — a gradient,
+    not one flat value, so the check is that nothing page-bright survived there
+    rather than that the corners equal any particular colour.
     """
     for x, y in [(2, 2), (size - 3, 2), (2, size - 3), (size - 3, size - 3)]:
-        offset = (y * size + x) * 3
-        for channel in range(3):
-            if abs(pixels[offset + channel] - ground[channel]) > 2:
-                return False
+        if luminance(pixels, (y * size + x) * 3) >= PAGE_EDGE:
+            return False
     return True
 
 
@@ -272,44 +271,39 @@ def content_box(pixels, width, height):
     return left, top, right, bottom
 
 
-def flatten_to_ground(pixels, width, height, ground):
-    """Makes everything that is not the mark exactly the artwork's own ground.
+# Brighter than anything inside the mark, darker than the page. The flood fill
+# below eats pixels above this; the artwork's own shading sits far under it.
+PAGE_EDGE = 100
 
-    iOS applies its own superellipse mask, so an image that rounds its own corners
-    and sits on white keeps that white *outside* its curve and inside Apple's:
-    four pale wedges around a dark square. Going full-bleed in the artwork's own
-    background colour means Apple's mask cuts into flat colour.
+# How many pixels past the flood's edge to keep eating. The page-to-plate
+# anti-aliasing passes *through* every value on its way down, so a threshold
+# alone always leaves a one-or-two-pixel pale ring exactly along the artwork's
+# curve — which then wins any "brightest colour" question. Three rounds of
+# dilation put the fill boundary safely inside the plate.
+PAGE_DILATE = 3
 
-    Two passes, because one is not enough on real artwork and each pass exists for
-    a failure this went through:
 
-    **A flood fill inward from the border**, through anything that is not the
-    ground colour. That is what removes the page and — the part a brightness
-    threshold missed — the soft ring where the artwork's curve meets it. That ring
-    is lighter than everything in the mark, so left behind it won any "brightest
-    colour here" question and became the app's tint, sampled from an
-    anti-aliasing artifact.
+def page_mask(pixels, width, height):
+    """Marks the export's page: bright pixels reachable from the border.
 
-    **Then a floor: nothing may be darker than the ground.** The fill alone cannot
-    reach a drop shadow, because a shadow fades *through* the ground value on its
-    way out to the page — so the fill meets a ring of ground-coloured pixels and
-    stops with the dark core still behind it, leaving a band along one edge that
-    the contrast lift turns into speckle. The floor catches it wherever it is. It
-    also flattens the mark's own dark details — the rules and the photo block cut
-    into the paper — onto exactly the ground, which is what they already looked
-    like against a near-black field.
+    Reachability matters. A highlight *inside* the mark can be as bright as the
+    page, but it is fenced off by the dark plate around it — flooding from the
+    border can never arrive there. An earlier version of this file flooded
+    through anything that was not the ground colour instead, which worked only
+    because that artwork's plate was flat; on artwork with a gradient the fill
+    walked straight through the plate and erased the mark. The luminance test
+    makes the fill about what the page is, not about what the ground is.
     """
-    ground_luminance = luminance(bytes(ground), 0)
-    visited = bytearray(width * height)
+    mask = bytearray(width * height)
     stack = []
 
     def consider(x, y):
         position = y * width + x
-        if visited[position]:
+        if mask[position]:
             return
-        if abs(luminance(pixels, position * 3) - ground_luminance) <= GRAIN:
+        if luminance(pixels, position * 3) < PAGE_EDGE:
             return
-        visited[position] = 1
+        mask[position] = 1
         stack.append(position)
 
     for x in range(width):
@@ -319,11 +313,8 @@ def flatten_to_ground(pixels, width, height, ground):
         consider(0, y)
         consider(width - 1, y)
 
-    outside = 0
     while stack:
         position = stack.pop()
-        pixels[position * 3:position * 3 + 3] = bytes(ground)
-        outside += 1
         x, y = position % width, position // width
         if x > 0:
             consider(x - 1, y)
@@ -334,13 +325,62 @@ def flatten_to_ground(pixels, width, height, ground):
         if y + 1 < height:
             consider(x, y + 1)
 
-    floored = 0
-    for index in range(0, width * height * 3, 3):
-        if luminance(pixels, index) < ground_luminance:
-            pixels[index:index + 3] = bytes(ground)
-            floored += 1
+    for _ in range(PAGE_DILATE):
+        grown = bytearray(mask)
+        for y in range(height):
+            row = y * width
+            for x in range(width):
+                if mask[row + x]:
+                    continue
+                if ((x > 0 and mask[row + x - 1])
+                        or (x + 1 < width and mask[row + x + 1])
+                        or (y > 0 and mask[row + x - width])
+                        or (y + 1 < height and mask[row + x + width])):
+                    grown[row + x] = 1
+        mask = grown
 
-    return outside, floored
+    return mask
+
+
+def inpaint(pixels, width, height, mask):
+    """Paints the masked page with the colours of the artwork beside it.
+
+    A breadth-first wave in from the mask's boundary, each masked pixel taking
+    the colour of the neighbour that reached it first. Where the plate's corner
+    curve meets the page, its own gradient continues outward — so the corners
+    iOS masks into hold the same colour the artwork has right there, and the
+    seam is invisible. Flooding a single flat ground here is what a gradient
+    plate cannot survive: the corner would be one shade, the plate beside it
+    another, and the join reads as a chipped edge.
+    """
+    remaining = bytearray(mask)
+    queue = []
+    for y in range(height):
+        row = y * width
+        for x in range(width):
+            if not remaining[row + x]:
+                continue
+            for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                if 0 <= nx < width and 0 <= ny < height and not remaining[ny * width + nx]:
+                    queue.append((row + x, ny * width + nx))
+                    break
+
+    painted = 0
+    head = 0
+    while head < len(queue):
+        position, source = queue[head]
+        head += 1
+        if not remaining[position]:
+            continue
+        remaining[position] = 0
+        pixels[position * 3:position * 3 + 3] = pixels[source * 3:source * 3 + 3]
+        painted += 1
+        x, y = position % width, position // width
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if 0 <= nx < width and 0 <= ny < height and remaining[ny * width + nx]:
+                queue.append((ny * width + nx, position))
+
+    return painted
 
 
 def resample(pixels, width, height, size):
@@ -380,46 +420,19 @@ def crop(pixels, width, box):
     return new_width, new_height, out
 
 
-def lift(pixels, width, height, ground, factor):
-    """Pushes the mark away from its background without moving the background.
-
-    The supplied artwork is a dark grey mark on a near-black ground, which is
-    handsome at full size and a black square at 60 points. This scales each
-    pixel's distance from the ground colour, so the ground stays exactly flat —
-    important, because iOS masks into it — and everything drawn on top gains
-    contrast.
-    """
-    ground_luminance = luminance(bytes(ground), 0)
-    for index in range(0, width * height * 3, 3):
-        # A deadzone around the ground. Without it the export's grain — a few
-        # values either side of flat — is amplified along with the mark, and the
-        # field goes blotchy. Snapping it to exactly the ground also means the
-        # corners iOS masks into are truly flat.
-        if abs(luminance(pixels, index) - ground_luminance) <= GRAIN:
-            pixels[index:index + 3] = bytes(ground)
-            continue
-        for channel in range(3):
-            base = ground[channel]
-            value = pixels[index + channel]
-            scaled = base + (value - base) * factor
-            pixels[index + channel] = max(0, min(255, int(scaled + 0.5)))
-    return pixels
-
-
 SOURCE = os.path.join(APP, "design", "icon-source.png")
 
-# How far the supplied mark is pushed away from its own background. 1.0 is the
-# artwork untouched; this is the value that makes it legible at 60 points without
-# turning the mark white.
-LIFT = 2.5
 
-# How far from the ground still counts as the ground. A real export is not flat;
-# this is the width of that noise.
-GRAIN = 7
+def from_source(path, size=1024):
+    """Turns a supplied square export into a full-bleed iOS icon.
 
-
-def from_source(path, size=1024, factor=LIFT):
-    """Turns a supplied square export into a full-bleed iOS icon."""
+    The artwork's shading is left completely alone. An earlier version of this
+    pipeline flattened everything to one ground colour and pushed the mark away
+    from it with a contrast lift — right for a flat two-tone export, and exactly
+    wrong for artwork with a gradient plate, where "the ground" is not one
+    colour and a lift amplifies the shading into banding. All this does now is
+    remove the page it was exported on.
+    """
     width, height, pixels = read_png(path)
 
     box = content_box(pixels, width, height)
@@ -427,15 +440,10 @@ def from_source(path, size=1024, factor=LIFT):
 
     ground = dominant(pixels, width, height)
 
-    outside, floored = flatten_to_ground(pixels, width, height, ground)
+    mask = page_mask(pixels, width, height)
+    painted = inpaint(pixels, width, height, mask)
 
-    # Sampled before the lift. Afterwards the brightest pixel is wherever the
-    # scaling clamped, which is pure white and tells you nothing about the
-    # artwork.
     natural_accent = brightest(pixels, width, height)
-
-    if factor != 1.0:
-        lift(pixels, width, height, ground, factor)
 
     # Non-square exports are padded rather than stretched, because stretching a
     # logo is never the right answer and silently doing it is worse.
@@ -455,8 +463,7 @@ def from_source(path, size=1024, factor=LIFT):
         pixels = square
         print("source cropped to %dx%d; padded square with the ground colour" % original)
 
-    print("flattened     %d px outside the mark, %d px darker than the ground"
-          % (outside, floored))
+    print("inpainted     %d page px with the artwork's own edge colours" % painted)
     return resample(pixels, width, height, size), ground, natural_accent
 
 
@@ -472,8 +479,8 @@ def main():
         ground, accent = BACKGROUND, MARK
         origin = "the generated mark"
 
-    if not has_flat_corners(pixels, 1024, ground):
-        raise SystemExit("FAIL: artwork is not full-bleed; iOS would mask into it")
+    if not has_dark_corners(pixels, 1024):
+        raise SystemExit("FAIL: page survived in a corner; iOS would mask into it")
 
     path = os.path.join(icon_dir, "AppIcon.png")
     size_bytes = write_png(path, 1024, 1024, pixels)

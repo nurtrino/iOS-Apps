@@ -1,5 +1,6 @@
 import AVKit
 import SwiftUI
+import UIKit
 import WebKit
 
 /// Plays a file the source handed us directly.
@@ -219,6 +220,25 @@ struct EmbedPlayback: Identifiable {
     let id = UUID()
     let embed: VideoEmbed
     let title: String
+}
+
+/// Sends a tapped video where it plays best.
+///
+/// For YouTube that is the YouTube app: the real player, with the account, the
+/// resolution picker and none of the embed-refusal dance. The in-app sheet
+/// remains the fallback for a phone without the app — `open` on the `youtube://`
+/// scheme simply reports failure when nothing handles it, and no
+/// `LSApplicationQueriesSchemes` entry is needed because nothing here asks
+/// `canOpenURL` first. Direct files have no app to defer to and always play in
+/// the sheet.
+enum VideoLauncher {
+
+    @MainActor
+    static func openInYouTubeApp(_ embed: VideoEmbed) async -> Bool {
+        guard let id = embed.youtubeID,
+              let url = URL(string: "youtube://watch?v=\(id)") else { return false }
+        return await UIApplication.shared.open(url)
+    }
 }
 
 /// Plays the video a post is about, whatever hosts it.

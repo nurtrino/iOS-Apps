@@ -117,9 +117,23 @@ struct ArticleScreen: View {
     private var videoButton: some View {
         if let embed {
             if let id = embed.youtubeID, !embedRefused {
-                YouTubePlayer(videoID: id) { embedRefused = true }
-                    .frame(height: 210)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                VStack(spacing: 6) {
+                    YouTubePlayer(videoID: id) { embedRefused = true }
+                        .frame(height: 210)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    // The list rows already send taps straight to the YouTube
+                    // app; the reader keeps its inline player for context, and
+                    // this is the same door from here.
+                    Button {
+                        Task { _ = await VideoLauncher.openInYouTubeApp(embed) }
+                    } label: {
+                        Label("Open in YouTube", systemImage: "arrow.up.forward.app")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Palette.accent)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
             } else if embed.fileURL != nil {
                 Button {
                     video = article

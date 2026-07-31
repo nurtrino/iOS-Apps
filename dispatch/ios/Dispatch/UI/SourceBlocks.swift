@@ -76,8 +76,9 @@ struct SourceFeedScreen: View {
             Button {
                 if settings.markReadOnOpen { read.markRead(article) }
                 // Same routing as the topic lists: resolve the aggregator's
-                // stub to its destination, then play a video destination in
-                // place rather than opening the page around it.
+                // stub to its destination, send YouTube to the YouTube app,
+                // and play anything else in place rather than opening the page
+                // around it.
                 Task {
                     let destination = await LinkResolver.shared.destination(for: article,
                                                                             source: source)
@@ -85,6 +86,7 @@ struct SourceFeedScreen: View {
                     if let embed = VideoEmbedFinder.find(link: target,
                                                          bodyHTML: article.bodyHTML,
                                                          fileURL: article.videoURL) {
+                        if await VideoLauncher.openInYouTubeApp(embed) { return }
                         playingEmbed = EmbedPlayback(embed: embed, title: article.displayTitle)
                     } else {
                         webLink = WebLink(url: target)

@@ -111,10 +111,13 @@ struct TopicFeedList<Header: View>: View {
                     let target = destination ?? link
                     // A post whose destination is a video plays the video. The
                     // page around a YouTube link is a consent wall and comments;
-                    // the wire posted it for the footage.
+                    // the wire posted it for the footage. YouTube goes to the
+                    // YouTube app when it is installed; the sheet is the
+                    // fallback, and direct files always play in it.
                     if let embed = VideoEmbedFinder.find(link: target,
                                                          bodyHTML: article.bodyHTML,
                                                          fileURL: article.videoURL) {
+                        if await VideoLauncher.openInYouTubeApp(embed) { return }
                         playingEmbed = EmbedPlayback(embed: embed, title: article.displayTitle)
                     } else {
                         webLink = WebLink(url: target)
