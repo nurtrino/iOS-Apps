@@ -28,10 +28,15 @@ extensions.configure<com.android.build.api.dsl.ApplicationExtension>("android") 
         // Stamped by CI with the workflow run number. Hardcoding this is the
         // mistake the iOS side already paid for: every build called itself
         // "1.0 (1)", so "is the fix on your phone" had no answer and days of
-        // debugging went past an install nobody could date. A local build with
-        // no property set is build 0, which reads as "not from CI".
-        versionCode = (findProperty("dispatchBuild") as String? ?: "0").toInt()
-        versionName = "1.0." + (findProperty("dispatchBuild") as String? ?: "0")
+        // debugging went past an install nobody could date.
+        //
+        // Unstamped means a local build, and it says so in the name rather than
+        // borrowing a number CI might also use. The code cannot do the same —
+        // AGP rejects a versionCode of 0 outright, and the `:core:test` task
+        // configures this module too, so the unstamped default has to be legal.
+        val stamp = (findProperty("dispatchBuild") as String?)?.toIntOrNull()
+        versionCode = stamp ?: 1
+        versionName = if (stamp == null) "1.0 (local)" else "1.0 ($stamp)"
     }
 
     buildTypes {
