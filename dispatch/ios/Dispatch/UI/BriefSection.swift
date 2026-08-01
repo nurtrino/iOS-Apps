@@ -210,7 +210,7 @@ struct BriefSection: View {
             guard count > 0 else { return nil }
             return "\(count) stream\(count == 1 ? "" : "s") live now"
 
-        case .politics, .gaming:
+        case .politics, .tech, .gaming:
             return nil
         }
     }

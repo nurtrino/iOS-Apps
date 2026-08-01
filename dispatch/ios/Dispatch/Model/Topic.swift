@@ -9,6 +9,7 @@ enum Topic: String, Codable, CaseIterable, Identifiable {
     case war
     case politics
     case economics
+    case tech
     case gaming
 
     var id: String { rawValue }
@@ -18,6 +19,7 @@ enum Topic: String, Codable, CaseIterable, Identifiable {
         case .war: return "War"
         case .politics: return "Politics"
         case .economics: return "Markets"
+        case .tech: return "Tech"
         case .gaming: return "Gaming"
         }
     }
@@ -27,15 +29,18 @@ enum Topic: String, Codable, CaseIterable, Identifiable {
         case .war: return "shield.lefthalf.filled"
         case .politics: return "building.columns"
         case .economics: return "chart.line.uptrend.xyaxis"
+        case .tech: return "cpu"
         case .gaming: return "gamecontroller"
         }
     }
 
     /// The topics the classifier is allowed to choose between.
     ///
-    /// Gaming is excluded deliberately. No general news source publishes it, so
-    /// every gaming article comes from a source that only ever publishes
-    /// gaming — letting the classifier pick it would only ever be a mistake.
+    /// Gaming and Tech are excluded deliberately. No general news source
+    /// publishes into them — every gaming and every tech article comes from a
+    /// source that only ever publishes that one thing — so letting the
+    /// classifier pick them would only ever be a mistake. They are `.fixed`
+    /// sources routed straight to their section.
     static let classifiable: [Topic] = [.war, .politics, .economics]
 }
 
@@ -51,6 +56,9 @@ enum TopicTheme {
         case .war: return Color(red: 0.847, green: 0.267, blue: 0.216)
         case .politics: return Color(red: 0.361, green: 0.541, blue: 0.831)
         case .economics: return Color(red: 0.243, green: 0.706, blue: 0.478)
+        // A cyan that reads as "tech" and stays clear of the economics green
+        // and the politics blue on either side of it.
+        case .tech: return Color(red: 0.239, green: 0.729, blue: 0.792)
         case .gaming: return Color(red: 0.494, green: 0.443, blue: 0.878)
         }
     }

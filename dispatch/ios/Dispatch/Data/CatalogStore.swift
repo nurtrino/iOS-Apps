@@ -47,11 +47,28 @@ final class CatalogStore: ObservableObject {
         var changed = false
         let updated = sources.map { source -> Source in
             guard source.isBuiltIn,
-                  let shipped = SourceCatalog.default(withID: source.id),
-                  source.dropsUnsortable != shipped.dropsUnsortable else { return source }
+                  let shipped = SourceCatalog.default(withID: source.id) else { return source }
             var source = source
-            source.dropsUnsortable = shipped.dropsUnsortable
-            changed = true
+
+            // Rev < 2: `dropsUnsortable` changed meaning; reset it to shipped.
+            if revision < 2, source.dropsUnsortable != shipped.dropsUnsortable {
+                source.dropsUnsortable = shipped.dropsUnsortable
+                changed = true
+            }
+
+            // Rev < 3: CFP moved from classified to fixed politics. Reset the
+            // filing fields to shipped so the stored classified copy stops
+            // splitting it across three sections. Scoped to CFP by id — this is
+            // not a blanket "reset how every source files", which would throw
+            // away deliberate edits to other outlets.
+            if revision < 3, source.id == "citizenfreepress",
+               source.topicMode != shipped.topicMode || source.fixedTopic != shipped.fixedTopic {
+                source.topicMode = shipped.topicMode
+                source.fixedTopic = shipped.fixedTopic
+                source.topicPrior = shipped.topicPrior
+                changed = true
+            }
+
             return source
         }
         return (updated, changed)

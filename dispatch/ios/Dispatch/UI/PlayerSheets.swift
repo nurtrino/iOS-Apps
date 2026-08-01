@@ -235,9 +235,35 @@ enum VideoLauncher {
 
     @MainActor
     static func openInYouTubeApp(_ embed: VideoEmbed) async -> Bool {
-        guard let id = embed.youtubeID,
-              let url = URL(string: "youtube://watch?v=\(id)") else { return false }
-        return await UIApplication.shared.open(url)
+        guard let id = embed.youtubeID else { return false }
+        return await openVideo(id: id)
+    }
+
+    /// Opens a video id in the YouTube app, falling back to the watch page.
+    ///
+    /// The `youtube://` scheme is what forces the app rather than a browser.
+    /// When the app is not installed `open` reports false, and the https watch
+    /// page — a universal link — is tried next, which opens the app if it is
+    /// there after all and Safari if it is not.
+    @MainActor
+    static func openVideo(id: String) async -> Bool {
+        if let appURL = URL(string: "youtube://watch?v=\(id)"),
+           await UIApplication.shared.open(appURL) {
+            return true
+        }
+        guard let webURL = URL(string: "https://www.youtube.com/watch?v=\(id)") else { return false }
+        return await UIApplication.shared.open(webURL)
+    }
+
+    /// Opens a channel's live tab in the YouTube app.
+    ///
+    /// Used when nothing is confirmed live yet: `…/@handle/live` lands on the
+    /// current stream when there is one and the channel's live tab when there is
+    /// not. Opened as a universal link so the YouTube app takes it if installed.
+    @MainActor
+    static func openChannelLive(reference: String) async -> Bool {
+        guard let webURL = YouTubeLive.liveURL(reference: reference) else { return false }
+        return await UIApplication.shared.open(webURL)
     }
 }
 

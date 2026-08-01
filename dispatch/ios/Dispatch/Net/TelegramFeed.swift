@@ -117,13 +117,59 @@ enum TelegramFeed {
 
     // MARK: - Fields
 
-    /// The message body, with Telegram's inline markup flattened to text.
+    /// The message body, with Telegram's inline markup flattened to text and its
+    /// emoji removed.
+    ///
+    /// War channels open nearly every post with a wall of flags, sirens and
+    /// red-circle emoji, and since a Telegram post has no title the app derives
+    /// its headline from the first run of this text — so the emoji land exactly
+    /// where the headline should be and every row reads as a pictogram before a
+    /// word. Stripping them here cleans the derived headline and the dek in one
+    /// place.
     private static func messageText(in chunk: Substring) -> String {
         // `js-message_text` and not `tgme_widget_message_text`: a reply preview
         // uses the second class with `js-message_reply_text`, and matching the
         // broad name pulls the quoted post in as if it were the post.
         guard let body = balancedDiv(in: chunk, classContaining: "js-message_text") else { return "" }
-        return HTMLText.plainText(from: String(body))
+        return stripEmoji(from: HTMLText.plainText(from: String(body)))
+    }
+
+    /// Removes emoji and their joiners, then tidies the spacing they leave.
+    ///
+    /// Deliberately narrow: only pictographic scalars, the flag regional
+    /// indicators, skin-tone modifiers, variation selectors and the
+    /// zero-width joiner go. Digits, `#`, `*` and the like carry an emoji
+    /// property too but are real text, so they are matched by explicit ranges
+    /// rather than by the broad `isEmoji`, which would delete the "5" in "5
+    /// killed".
+    static func stripEmoji(from text: String) -> String {
+        guard text.unicodeScalars.contains(where: isEmojiScalar) else { return text }
+        var scalars = String.UnicodeScalarView()
+        for scalar in text.unicodeScalars where !isEmojiScalar(scalar) {
+            scalars.append(scalar)
+        }
+        // Emoji sat between words leave double spaces and stranded punctuation
+        // ("🇮🇱 BREAKING:" → " BREAKING:"); collapse what is left.
+        return HTMLText.collapseWhitespace(in: String(scalars))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func isEmojiScalar(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x200D,                    // zero-width joiner
+             0xFE00...0xFE0F,           // variation selectors
+             0x1F1E6...0x1F1FF,         // regional indicators (flags)
+             0x1F3FB...0x1F3FF,         // skin-tone modifiers
+             0x2600...0x27BF,           // misc symbols, dingbats
+             0x2B00...0x2BFF,           // misc symbols and arrows
+             0x1F000...0x1FAFF,         // pictographs, emoticons, transport, supplemental
+             0xE0020...0xE007F:         // tag characters (subdivision flags)
+            return true
+        default:
+            // Anything else that is *drawn* as emoji by default — catches the
+            // stragglers the ranges miss without touching ordinary text.
+            return scalar.properties.isEmojiPresentation
+        }
     }
 
     /// A photo or a video poster frame.

@@ -258,9 +258,15 @@ enum SourceCatalog {
             name: "Citizen Free Press",
             kind: .rss,
             endpoint: "https://citizenfreepress.com/feed/",
-            topicMode: .classified,
+            // A straight political source now, not a classified one. It was
+            // being scored per story and spread across three sections, which is
+            // correct filing and was also the whole reason "where did CFP go"
+            // kept coming up: a hundred links a day, split three ways, with the
+            // low-signal ones dropping out entirely. It is a political
+            // aggregator — so everything it posts goes to Politics, newest
+            // first, and the section is the stream.
+            topicMode: .fixed,
             fixedTopic: .politics,
-            topicPrior: .politics,
             // Three addresses for one WordPress install. `?feed=rss2` is the
             // query-string form every WordPress serves regardless of permalink
             // settings, and it is worth having because a block is often on the
@@ -276,7 +282,99 @@ enum SourceCatalog {
             isBuiltIn: true
         ),
 
+        // --- Tech -----------------------------------------------------------
+        //
+        // All fixed to Tech, the same way Gaming works: these are single-subject
+        // outlets, so there is nothing for the classifier to decide. Payload and
+        // Next Spaceflight are tagged as space in `TechScreen` and surface in the
+        // section's own space rail rather than the main tech wire.
+
+        Source(
+            id: "pirate-wires",
+            name: "Pirate Wires",
+            kind: .rss,
+            endpoint: "https://www.piratewires.com/feed",
+            topicMode: .fixed,
+            fixedTopic: .tech,
+            fallbackFeeds: [
+                "https://www.piratewires.com/rss/",
+                "https://piratewires.com/feed",
+            ],
+            style: .article,
+            isBuiltIn: true
+        ),
+        Source(
+            id: "cryptogon",
+            name: "Cryptogon",
+            kind: .rss,
+            endpoint: "https://www.cryptogon.com/feed/",
+            topicMode: .fixed,
+            fixedTopic: .tech,
+            fallbackFeeds: [
+                "https://cryptogon.com/feed/",
+                "https://www.cryptogon.com/?feed=rss2",
+            ],
+            style: .wire,
+            isBuiltIn: true
+        ),
+        Source(
+            id: "theregister",
+            name: "The Register",
+            kind: .rss,
+            // The Register publishes an Atom feed of everything at this address;
+            // the .co.uk host serves the identical bytes and covers a block on
+            // one domain.
+            endpoint: "https://www.theregister.com/headlines.atom",
+            topicMode: .fixed,
+            fixedTopic: .tech,
+            fallbackFeeds: [
+                "https://www.theregister.co.uk/headlines.atom",
+                "https://www.theregister.com/Design/page/feeds.html",
+            ],
+            style: .wire,
+            isBuiltIn: true
+        ),
+        Source(
+            id: "payload-space",
+            name: "Payload",
+            kind: .rss,
+            endpoint: "https://payloadspace.com/feed/",
+            topicMode: .fixed,
+            fixedTopic: .tech,
+            fallbackFeeds: [
+                "https://payloadspace.com/rss/",
+                "https://payloadspace.com/?feed=rss2",
+            ],
+            style: .article,
+            isBuiltIn: true
+        ),
+        Source(
+            id: "nextspaceflight",
+            name: "Next Spaceflight",
+            kind: .rss,
+            endpoint: "https://nextspaceflight.com/feed/",
+            topicMode: .fixed,
+            fixedTopic: .tech,
+            fallbackFeeds: [
+                "https://nextspaceflight.com/rss/",
+                "https://nextspaceflight.com/news/feed/",
+            ],
+            style: .wire,
+            isBuiltIn: true
+        ),
+
         // --- War ----------------------------------------------------------
+
+        Source(
+            id: "middleeastspectator",
+            name: "Middle East Spectator",
+            kind: .telegram,
+            endpoint: "MiddleEastSpectator",
+            topicMode: .fixed,
+            fixedTopic: .war,
+            style: .wire,
+            isBuiltIn: true
+        ),
 
         Source(
             id: "twz",
@@ -418,5 +516,11 @@ enum SourceCatalog {
     /// who already has the app. That is precisely the population the change was
     /// for. `CatalogStore` resets the affected flags when it sees an older
     /// revision.
-    static let behaviourRevision = 2
+    ///
+    /// Revision 3: Citizen Free Press went from `.classified` to `.fixed`
+    /// politics. That is a changed *meaning* for a stored source — an install
+    /// that saved CFP as classified would keep splitting it across three
+    /// sections forever, since the stored copy wins the merge — so the
+    /// migration forces its filing back to what ships here.
+    static let behaviourRevision = 3
 }

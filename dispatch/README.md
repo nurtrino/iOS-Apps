@@ -6,11 +6,24 @@ between, no tracking: the app talks to the publishers directly from the device.
 
 | Tab | What is on it |
 | --- | --- |
-| **War** | Live streams when something is on, the brief, then The War Zone and anything else sorted here |
-| **Politics** | Everything the classifier files as politics |
+| **War** | A one-tap link to live coverage in the YouTube app, the brief, then The War Zone, the Middle East Spectator Telegram wire and anything else sorted here |
+| **Politics** | Citizen Free Press and the rest, newest first |
 | **Markets** | BTC and S&P 500 with sparklines, the US release calendar, then the economics feed |
-| **Gaming** | Steam news for your library across the top, then the wire — CharlieIntel, Gematsu, VGC, PC Gamer |
-| **More** | Saved, Search, Sources, Streams, Steam, Settings |
+| **Tech** | Space news across the top — Payload, Next Spaceflight — then the wire: The Register, Pirate Wires, Cryptogon |
+| **More** | Gaming, Saved, Search, Sources, Streams, Steam, Settings |
+
+Five tabs, and iOS shows only five. War, Politics, Markets and Tech are the
+all-day sections and take the visible slots; **Gaming moved into More**, opened
+full-screen from there, since it is read least like a wire — patch notes for the
+games you played, not something happening now. Everything it had is intact.
+
+Two things that changed shape: War no longer plays streams in a rail — the embed
+was refused too often — and instead links straight into the YouTube app, jumping
+to a stream that is live now or a war channel's live tab when none is. And
+**Citizen Free Press is a plain political source** rather than a classified one:
+it was being scored per story and split across three sections, which is correct
+filing and was also why "where did CFP go" kept coming up. It is a political
+aggregator, so all of it lands in Politics, newest first.
 
 ## Sorting: how a story finds its section
 
@@ -136,26 +149,26 @@ day, so the news you opened the Gaming tab for was gone within an hour of a
 refresh. It gets a horizontal rail of game cards above the list rather than a
 place in it.
 
-The same problem killed a source outright. A frontline Telegram channel posting
-dozens of times an hour needed its own block to stop it burying the analysis,
-then its own rule to keep its threads out of the brief, and it was *still* the
-loudest thing on the screen — so it is retired rather than fought with. Telegram
-remains a source **kind**, so any channel can be added by hand in More › Sources;
-it is just not shipped as a default any more. A video post from one plays in the
-reader, where every source's video now does.
+Space has the same shape on the **Tech** tab: Payload and Next Spaceflight are
+pulled out of the main tech wire into their own rail across the top, with an
+"All" door to every space story merged, so launch news is not interleaved with
+chip news and platform politics.
 
-**Citizen Free Press also gets a named door.** The classifier spreads its
-hundred-a-day across War, Politics and Markets — correct filing, but it means
-"just show me CFP" had no answer short of the management screens. The Politics
-section now opens with a spotlight button: the newest headline as a teaser, the
-unread count, and one tap into the raw stream — every post, newest first, no
-filing in between.
+One Telegram channel ships as a default again: **the Middle East Spectator**, on
+War. War channels open nearly every post with a wall of flags and sirens, and
+since a Telegram post has no title the headline is derived from the first run of
+its text — so the emoji land exactly where the headline should be. They are
+stripped from the derived text, narrowly: pictographs, flags, skin-tone
+modifiers and joiners go, while the digits in "5 killed" stay. (An earlier
+frontline channel was retired for volume it could not be tamed out of; Telegram
+remains a source **kind**, so any channel can still be added by hand.)
 
-**A post whose destination is a video plays the video, in the app.** A link
-wire's post is often a YouTube link with a sentence attached; the page around it
-is a consent wall and comments. So when the resolved destination is a video —
-any of the five YouTube URL shapes, or a direct file — the tap opens a player in
-a sheet, in the topic lists and the per-source stream alike.
+**A post whose destination is a video plays the video.** A link wire's post is
+often a YouTube link with a sentence attached; the page around it is a consent
+wall and comments. So when the resolved destination is a YouTube link, the tap
+hands off to the **YouTube app** — the real player and your account — falling
+back to an in-app sheet when the app is not installed. A direct file (a Telegram
+clip) always plays in the sheet.
 
 **Video and live streams never fall back to Safari.** This took getting the
 diagnosis right. YouTube's embed error 150/153 is usually read as "the owner

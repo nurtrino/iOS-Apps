@@ -49,6 +49,34 @@ SOURCES = [
         "https://feeds.feedburner.com/zerohedge/feed",
         "https://www.zerohedge.com/fullrss2.xml",
     ]),
+    # Tech, all fixed to that section in the app — the classify columns below
+    # are only informational here; what this run is proving is that the feed
+    # fetches and parses, which is the thing that was guessed at and shipped
+    # wrong before. Every address the source ships is tried in order.
+    ("pirate-wires", "tech", "tech", [
+        "https://www.piratewires.com/feed",
+        "https://www.piratewires.com/rss/",
+        "https://piratewires.com/feed",
+    ]),
+    ("cryptogon", "tech", "tech", [
+        "https://www.cryptogon.com/feed/",
+        "https://cryptogon.com/feed/",
+        "https://www.cryptogon.com/?feed=rss2",
+    ]),
+    ("theregister", "tech", "tech", [
+        "https://www.theregister.com/headlines.atom",
+        "https://www.theregister.co.uk/headlines.atom",
+    ]),
+    ("payload-space", "tech", "tech", [
+        "https://payloadspace.com/feed/",
+        "https://payloadspace.com/rss/",
+        "https://payloadspace.com/?feed=rss2",
+    ]),
+    ("nextspaceflight", "tech", "tech", [
+        "https://nextspaceflight.com/feed/",
+        "https://nextspaceflight.com/rss/",
+        "https://nextspaceflight.com/news/feed/",
+    ]),
 ]
 
 LEXICON = load_lexicon()

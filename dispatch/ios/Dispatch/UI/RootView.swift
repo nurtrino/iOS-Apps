@@ -4,8 +4,13 @@ import SwiftUI
 ///
 /// Five tabs, deliberately — iOS folds anything past five into a "More" list,
 /// and a topic you read every morning does not belong behind a disclosure. So
-/// the four topics get the four visible slots and Saved, Search and Settings
-/// share the fifth.
+/// the four all-day sections — War, Politics, Markets, Tech — get the four
+/// visible slots, and Saved, Search, Settings and the rest share the fifth.
+///
+/// Gaming lost its tab when Tech arrived; there is no sixth slot, and gaming is
+/// the section read least like a wire — patch notes for the games you played,
+/// not something happening now — so it moved into More, opened full-screen from
+/// there. It is a relocation, not a removal: everything it had is intact.
 ///
 /// There is no combined feed. Each topic is its own place with its own
 /// furniture, which is the point: a screen with a live rail on it and a screen
@@ -32,8 +37,8 @@ struct RootView: View {
             EconomicsScreen()
                 .tabItem { Label(Topic.economics.title, systemImage: Topic.economics.systemImage) }
 
-            GamingScreen()
-                .tabItem { Label(Topic.gaming.title, systemImage: Topic.gaming.systemImage) }
+            TechScreen()
+                .tabItem { Label(Topic.tech.title, systemImage: Topic.tech.systemImage) }
 
             MoreScreen()
                 .tabItem { Label("More", systemImage: "ellipsis.circle") }
@@ -92,10 +97,22 @@ struct MoreScreen: View {
     @EnvironmentObject private var feed: FeedStore
     @EnvironmentObject private var library: SteamLibraryStore
 
+    /// Gaming opens full-screen from here. A cover rather than a push so its own
+    /// navigation stack has a clean context — a `NavigationStack` nested inside
+    /// another misbehaves, and a modal is a fresh one.
+    @State private var showingGaming = false
+
     var body: some View {
         NavigationStack {
             List {
                 Section {
+                    Button {
+                        showingGaming = true
+                    } label: {
+                        Label("Gaming", systemImage: Topic.gaming.systemImage)
+                    }
+                    .tint(.primary)
+
                     NavigationLink {
                         SavedScreen()
                     } label: {
@@ -151,6 +168,9 @@ struct MoreScreen: View {
                 }
             }
             .navigationTitle("More")
+            .fullScreenCover(isPresented: $showingGaming) {
+                GamingScreen(onClose: { showingGaming = false })
+            }
         }
     }
 }
