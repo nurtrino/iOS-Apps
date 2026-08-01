@@ -293,12 +293,17 @@ enum SourceCatalog {
             id: "pirate-wires",
             name: "Pirate Wires",
             kind: .rss,
-            endpoint: "https://www.piratewires.com/feed",
+            // Ghost's canonical feed path. CI sees a 429 from this host — its
+            // Cloudflare rate-limits datacenter IPs — but a phone on a
+            // residential connection with the browser user agent is a different
+            // client, so this is shipped and the source screen will say plainly
+            // if it does not answer.
+            endpoint: "https://www.piratewires.com/rss/",
             topicMode: .fixed,
             fixedTopic: .tech,
             fallbackFeeds: [
-                "https://www.piratewires.com/rss/",
-                "https://piratewires.com/feed",
+                "https://piratewires.com/rss/",
+                "https://www.piratewires.com/feed",
             ],
             style: .article,
             isBuiltIn: true
@@ -307,12 +312,15 @@ enum SourceCatalog {
             id: "cryptogon",
             name: "Cryptogon",
             kind: .rss,
-            endpoint: "https://www.cryptogon.com/feed/",
+            // The query-string form, because the pretty `/feed/` path 404s on
+            // this install — verified against the live site. WordPress always
+            // serves the feed from `?feed=rss2` regardless of permalink config.
+            endpoint: "https://www.cryptogon.com/?feed=rss2",
             topicMode: .fixed,
             fixedTopic: .tech,
             fallbackFeeds: [
-                "https://cryptogon.com/feed/",
-                "https://www.cryptogon.com/?feed=rss2",
+                "https://cryptogon.com/?feed=rss2",
+                "https://www.cryptogon.com/feed/",
             ],
             style: .wire,
             isBuiltIn: true
@@ -348,16 +356,20 @@ enum SourceCatalog {
             style: .article,
             isBuiltIn: true
         ),
+        // Next Spaceflight was asked for by name, but it publishes no feed of
+        // any kind — every address 404s and its news page is a client-rendered
+        // app, verified against the live site. Spaceflight Now is the standing
+        // substitute: the same beat, launch-by-launch news, from a plain feed
+        // that actually exists.
         Source(
-            id: "nextspaceflight",
-            name: "Next Spaceflight",
+            id: "spaceflightnow",
+            name: "Spaceflight Now",
             kind: .rss,
-            endpoint: "https://nextspaceflight.com/feed/",
+            endpoint: "https://spaceflightnow.com/feed/",
             topicMode: .fixed,
             fixedTopic: .tech,
             fallbackFeeds: [
-                "https://nextspaceflight.com/rss/",
-                "https://nextspaceflight.com/news/feed/",
+                "https://www.spaceflightnow.com/feed/",
             ],
             style: .wire,
             isBuiltIn: true

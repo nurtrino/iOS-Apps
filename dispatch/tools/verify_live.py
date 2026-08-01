@@ -54,14 +54,14 @@ SOURCES = [
     # fetches and parses, which is the thing that was guessed at and shipped
     # wrong before. Every address the source ships is tried in order.
     ("pirate-wires", "tech", "tech", [
-        "https://www.piratewires.com/feed",
         "https://www.piratewires.com/rss/",
-        "https://piratewires.com/feed",
+        "https://piratewires.com/rss/",
+        "https://www.piratewires.com/feed",
     ]),
     ("cryptogon", "tech", "tech", [
-        "https://www.cryptogon.com/feed/",
-        "https://cryptogon.com/feed/",
         "https://www.cryptogon.com/?feed=rss2",
+        "https://cryptogon.com/?feed=rss2",
+        "https://www.cryptogon.com/feed/",
     ]),
     ("theregister", "tech", "tech", [
         "https://www.theregister.com/headlines.atom",
@@ -70,12 +70,10 @@ SOURCES = [
     ("payload-space", "tech", "tech", [
         "https://payloadspace.com/feed/",
         "https://payloadspace.com/rss/",
-        "https://payloadspace.com/?feed=rss2",
     ]),
-    ("nextspaceflight", "tech", "tech", [
-        "https://nextspaceflight.com/feed/",
-        "https://nextspaceflight.com/rss/",
-        "https://nextspaceflight.com/news/feed/",
+    ("spaceflightnow", "tech", "tech", [
+        "https://spaceflightnow.com/feed/",
+        "https://www.spaceflightnow.com/feed/",
     ]),
 ]
 

@@ -258,7 +258,7 @@ struct TechScreen: View {
     @State private var path = NavigationPath()
 
     /// Sources shown in the space rail rather than the main tech wire.
-    static let spaceSourceIDs: Set<String> = ["payload-space", "nextspaceflight"]
+    static let spaceSourceIDs: Set<String> = ["payload-space", "spaceflightnow"]
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -304,7 +304,7 @@ struct GamingScreen: View {
     @EnvironmentObject private var feed: FeedStore
     @EnvironmentObject private var steamLibrary: SteamLibraryStore
 
-    var onClose: (() -> Void)?
+    var onClose: (() -> Void)? = nil
 
     @State private var webLink: WebLink?
     @State private var path = NavigationPath()

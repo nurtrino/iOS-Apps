@@ -9,7 +9,7 @@ between, no tracking: the app talks to the publishers directly from the device.
 | **War** | A one-tap link to live coverage in the YouTube app, the brief, then The War Zone, the Middle East Spectator Telegram wire and anything else sorted here |
 | **Politics** | Citizen Free Press and the rest, newest first |
 | **Markets** | BTC and S&P 500 with sparklines, the US release calendar, then the economics feed |
-| **Tech** | Space news across the top — Payload, Next Spaceflight — then the wire: The Register, Pirate Wires, Cryptogon |
+| **Tech** | Space news across the top — Payload, Spaceflight Now — then the wire: The Register, Pirate Wires, Cryptogon |
 | **More** | Gaming, Saved, Search, Sources, Streams, Steam, Settings |
 
 Five tabs, and iOS shows only five. War, Politics, Markets and Tech are the
@@ -149,10 +149,12 @@ day, so the news you opened the Gaming tab for was gone within an hour of a
 refresh. It gets a horizontal rail of game cards above the list rather than a
 place in it.
 
-Space has the same shape on the **Tech** tab: Payload and Next Spaceflight are
+Space has the same shape on the **Tech** tab: Payload and Spaceflight Now are
 pulled out of the main tech wire into their own rail across the top, with an
 "All" door to every space story merged, so launch news is not interleaved with
-chip news and platform politics.
+chip news and platform politics. (Next Spaceflight was asked for by name but
+publishes no feed of any kind — a client-rendered app, no RSS — so Spaceflight
+Now stands in for it on the same beat.)
 
 One Telegram channel ships as a default again: **the Middle East Spectator**, on
 War. War channels open nearly every post with a wall of flags and sirens, and
