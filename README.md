@@ -9,6 +9,7 @@ tooling, tests, README — stays inside that app's directory.
 | [`pol-reader/`](pol-reader/) | Unofficial read-only client for 4chan's /pol/, built on the public JSON API. | iOS complete; Android shares the pure-logic layers with a thin Compose screen. |
 | [`vela/`](vela/) | Native client for PeerTube, the open federated video network — offline downloads, background audio, Picture in Picture, sign-in. | iOS. |
 | [`dispatch/`](dispatch/) | News reader in four themed tabs — War, Politics, Markets, Gaming — with an on-device story classifier, live stream detection and market charts. | iOS. |
+| [`macro/`](macro/) | Economics news desk — ten-source merged wire (ZeroHedge, CNBC, MarketWatch…), the Forex Factory economic calendar, a chartable market watchlist, and on-device notifications for high-impact releases and breaking headlines. | iOS. |
 
 ## Layout
 
@@ -26,6 +27,10 @@ vela/
 dispatch/
   ios/                  SwiftUI app + generated Xcode project
   tools/                project generation, icons, prechecks, parser tests
+  README.md             the app's own documentation
+macro/
+  ios/                  SwiftUI app + generated Xcode project
+  tools/                project generation, icons, prechecks
   README.md             the app's own documentation
 ```
 

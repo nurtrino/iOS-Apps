@@ -1,0 +1,106 @@
+name: Macro
+
+on:
+  push:
+    branches:
+      - main
+      - 'claude/**'
+    paths:
+      - 'macro/**'
+      - '.github/workflows/macro.yml'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macro-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build unsigned .ipa
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same checks available locally, so a mistake that could have been
+      # caught without a Mac fails in seconds rather than minutes.
+      - name: Static checks
+        run: |
+          python3 -m pip install --quiet pyyaml || true
+          python3 macro/tools/precheck.py
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # No certificates and no secrets: deliberately unsigned so a fresh clone
+      # with zero configuration still produces an artifact.
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project macro/ios/Macro.xcodeproj \
+            -scheme Macro \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS=""
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          APP="build/Build/Products/Release-iphoneos/Macro.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::$APP was not produced by the build"
+            find build/Build/Products -maxdepth 3 -name '*.app' || true
+            exit 1
+          fi
+          rm -rf payload
+          mkdir -p payload/Payload
+          cp -R "$APP" payload/Payload/
+          (cd payload && ditto -c -k --sequesterRsrc --keepParent Payload ../Macro-unsigned.ipa)
+
+          # Verify the artifact rather than trusting that the step succeeded.
+          ls -l Macro-unsigned.ipa
+          shasum -a 256 Macro-unsigned.ipa
+
+          # The capabilities that fail silently if the plist did not survive
+          # packaging are worth asserting on the built product, not just the
+          # source: without these two keys the app never wakes in the
+          # background and never posts a headline alert.
+          plutil -extract UIBackgroundModes json -o - "$APP/Info.plist"
+          plutil -extract BGTaskSchedulerPermittedIdentifiers json -o - "$APP/Info.plist"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Macro-unsigned-ipa
+          path: Macro-unsigned.ipa
+          if-no-files-found: error
+
+      # A release asset is a bare file at a stable URL. A workflow artifact is
+      # wrapped in a second zip and cannot be downloaded from the GitHub mobile
+      # app at all.
+      - name: Publish to rolling release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=latest
+          NOTES="Rolling builds of everything in this repo. The .ipa files are unsigned; sign before installing. The .apk is debug-signed."
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "Latest build" --notes "$NOTES" --latest || true
+          gh release edit "$TAG" --notes "$NOTES" >/dev/null
+          gh release upload "$TAG" Macro-unsigned.ipa --clobber
+
+          gh release view "$TAG" --json assets \
+            --jq '.assets[] | "\(.name) \(.size) bytes updated \(.updatedAt)"'
