@@ -5,6 +5,7 @@ The original IPA is preserved. Signing is a separate, device-account step.
 """
 
 import argparse
+import copy
 import hashlib
 import json
 import plistlib
@@ -12,7 +13,7 @@ import re
 import shutil
 import struct
 from pathlib import Path
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 EXPECTED_EXECUTABLE_SHA256 = "06ec08098abdb9c7829bfb1cd16dafd2b1b5a1dcafe4ededbb0434345db16a82"
 LIBRARY_PATH = "@executable_path/Frameworks/SnapDuo.dylib"
@@ -117,19 +118,32 @@ def package(source, library, output):
             for member in original.infolist():
                 if member.is_dir():
                     continue
+                entry = copy.copy(member)
+                entry.compress_type = ZIP_DEFLATED
+                with original.open(member) as reader:
+                    magic = reader.read(4)
+                if magic in (bytes.fromhex("cffaedfe"), bytes.fromhex("cafebabe")):
+                    entry.create_system = 3
+                    entry.external_attr = 0o100755 << 16
                 if member.filename == MAIN:
-                    result.writestr(member.filename, modified)
+                    result.writestr(entry, modified)
                 elif member.filename == PLIST:
-                    result.writestr(member.filename, plistlib.dumps(metadata))
+                    result.writestr(entry, plistlib.dumps(metadata))
                 else:
-                    with original.open(member) as reader, result.open(member.filename, "w", force_zip64=True) as writer:
+                    with original.open(member) as reader, result.open(entry, "w", force_zip64=True) as writer:
                         shutil.copyfileobj(reader, writer, 1024*1024)
-            result.writestr(LIBRARY_MEMBER, dynamic_library)
+            entry = ZipInfo(LIBRARY_MEMBER)
+            entry.create_system = 3
+            entry.external_attr = 0o100755 << 16
+            entry.compress_type = ZIP_DEFLATED
+            result.writestr(entry, dynamic_library)
         with ZipFile(temporary) as result:
             assert result.testzip() is None
             assert len(result.namelist()) == len(set(result.namelist()))
             assert result.read(MAIN) == modified
             assert result.read(LIBRARY_MEMBER) == dynamic_library
+            assert (result.getinfo(MAIN).external_attr >> 16) & 0o111 == 0o111
+            assert (result.getinfo(LIBRARY_MEMBER).external_attr >> 16) & 0o111 == 0o111
             for member in original.infolist():
                 if member.is_dir() or member.filename in (MAIN, PLIST):
                     continue
