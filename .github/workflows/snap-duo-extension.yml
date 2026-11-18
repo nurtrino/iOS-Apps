@@ -1,0 +1,35 @@
+name: Snap Duo camera extension
+on:
+  push:
+    branches: [codex/snap-duo-14-32]
+    paths: [snap-duo/**, .github/workflows/snap-duo-extension.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compile arm64 device extension
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          xcrun --sdk iphoneos clang \
+            -arch arm64 -miphoneos-version-min=17.0 \
+            -isysroot "$(xcrun --sdk iphoneos --show-sdk-path)" \
+            -fobjc-arc -fblocks -Wall -Wextra -Werror -Wno-unused-parameter \
+            -dynamiclib -framework UIKit -framework Foundation -framework AVFoundation \
+            -install_name @rpath/SnapDuo.dylib \
+            snap-duo/DuoCamera.m -o build/SnapDuo.dylib
+          file build/SnapDuo.dylib
+          otool -L build/SnapDuo.dylib
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SnapDuo-arm64
+          path: build/SnapDuo.dylib
+          if-no-files-found: error
+          retention-days: 7
