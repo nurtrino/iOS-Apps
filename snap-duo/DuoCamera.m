@@ -120,6 +120,7 @@ static void InstallFrontCamera(void) {
 @property(nonatomic, weak) UIView *view;
 @property(nonatomic) CGAffineTransform original;
 @property(nonatomic) CGAffineTransform applied;
+@property(nonatomic, copy) NSArray<UIView *> *clippedAncestors;
 @end
 @implementation DuoMovedControl
 @end
@@ -156,6 +157,14 @@ static void MoveControl(UIView *view, UIView *overlay, CGPoint center,
     record.applied = CGAffineTransformConcat(view.transform,
         CGAffineTransformMakeTranslation(to.x-from.x, to.y-from.y));
     view.transform = record.applied;
+    NSMutableArray<UIView *> *clipped = [NSMutableArray array];
+    for (UIView *parent = view.superview; parent && parent != overlay; parent = parent.superview) {
+        if (parent.clipsToBounds) {
+            [clipped addObject:parent];
+            parent.clipsToBounds = NO;
+        }
+    }
+    record.clippedAncestors = clipped;
     [records addObject:record];
 }
 
@@ -213,6 +222,7 @@ static void InstallOverlay(void) {
             if (CGAffineTransformEqualToTransform(record.view.transform,record.applied)) {
                 record.view.transform = record.original;
             }
+            for (UIView *parent in record.clippedAncestors) parent.clipsToBounds = YES;
         }
         objc_setAssociatedObject(overlay, &layoutRecordsKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         ((void (*)(id,SEL))originalLayout)(overlay,@selector(layoutSubviews));
@@ -306,6 +316,9 @@ __attribute__((constructor)) static void InitializeSnapDuo(void) {
         EnableFlag(@"SCCameraViewController",@"_viewportOrientationFixEnabled",NO);
         EnableFlag(@"SCCameraViewController",@"_imageCaptureOrientationFixEnabled",NO);
         EnableFlag(@"SCCameraViewController",@"_videoCaptureOrientationFixEnabled",NO);
+        Install(object_getClass(NSClassFromString(@"SCCameraViewfinderLayoutExperiment")),
+            @"runtimeViewfinderSizingEnabledWithAppStartExperimentReader:", "B24@0:8@16",
+            ^BOOL(id object, id reader) { return YES; });
         InstallFrontCamera();
         InstallNativeLayout();
         InstallOrientation();

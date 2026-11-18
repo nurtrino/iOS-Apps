@@ -27,9 +27,46 @@ jobs:
             snap-duo/DuoCamera.m -o build/SnapDuo.dylib
           file build/SnapDuo.dylib
           otool -L build/SnapDuo.dylib
+      - name: Exercise control layout and touch forwarding in UIKit
+        run: |
+          set -euo pipefail
+          APP=build/LayoutSmoke.app
+          mkdir -p "$APP"
+          xcrun --sdk iphonesimulator clang \
+            -target "$(uname -m)-apple-ios17.0-simulator" \
+            -isysroot "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+            -fobjc-arc -fblocks -Wall -Wextra -Werror -Wno-unused-parameter \
+            -framework UIKit -framework Foundation -framework AVFoundation -framework CoreGraphics \
+            snap-duo/LayoutSmoke.m -o "$APP/LayoutSmoke"
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          info = dict(CFBundleIdentifier="com.nurtrino.duolayouttest",
+                      CFBundleExecutable="LayoutSmoke", CFBundleName="LayoutSmoke",
+                      CFBundlePackageType="APPL", CFBundleVersion="1",
+                      CFBundleShortVersionString="1.0", MinimumOSVersion="17.0",
+                      UILaunchScreen={})
+          Path("build/LayoutSmoke.app/Info.plist").write_bytes(plistlib.dumps(info))
+          PY
+          codesign --force --sign - "$APP"
+          DEVICE="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for v in d["devices"].values() for x in v if "iPhone" in x["name"]))')"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" "$APP"
+          xcrun simctl launch "$DEVICE" com.nurtrino.duolayouttest
+          DATA="$(xcrun simctl get_app_container "$DEVICE" com.nurtrino.duolayouttest data)"
+          for attempt in $(seq 1 30); do
+            if [ -f "$DATA/Documents/result.txt" ]; then break; fi
+            sleep 2
+          done
+          cp "$DATA/Documents/result.txt" build/layout-test-result.txt
+          cat build/layout-test-result.txt
+          grep -q '^PASS' build/layout-test-result.txt
       - uses: actions/upload-artifact@v4
         with:
           name: SnapDuo-arm64
-          path: build/SnapDuo.dylib
+          path: |
+            build/SnapDuo.dylib
+            build/layout-test-result.txt
           if-no-files-found: error
           retention-days: 7
