@@ -1,0 +1,58 @@
+name: FairPlayed helper
+
+on:
+  push:
+    branches: [codex/fairplayed-helper]
+    paths: [.github/workflows/fairplayed-helper.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Retrieve pinned FairPlayed source
+        uses: actions/checkout@v4
+        with:
+          repository: morzelowski/FairPlayed
+          ref: bad7df138839b5e0ac8b9f20cc4689140b8436fb
+          persist-credentials: false
+
+      - name: Build unsigned device helper
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild build \
+            -project FairPlayed/FairPlayed.xcodeproj \
+            -scheme FairPlayed \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PRODUCT_BUNDLE_IDENTIFIER=com.nurtrino.snapduo.decrypt
+
+      - name: Package helper
+        run: |
+          set -euo pipefail
+          test -f build/Build/Products/Release-iphoneos/FairPlayed.app/FairPlayed
+          mkdir -p package/Payload
+          ditto build/Build/Products/Release-iphoneos/FairPlayed.app package/Payload/FairPlayed.app
+          cd package
+          /usr/bin/zip -q -r ../FairPlayed-template-unsigned.ipa Payload
+          cd ..
+          unzip -tq FairPlayed-template-unsigned.ipa
+          shasum -a 256 FairPlayed-template-unsigned.ipa
+
+      - name: Upload unsigned helper template
+        uses: actions/upload-artifact@v4
+        with:
+          name: FairPlayed-template-unsigned
+          path: FairPlayed-template-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
