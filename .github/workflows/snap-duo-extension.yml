@@ -22,7 +22,7 @@ jobs:
             -arch arm64 -miphoneos-version-min=17.0 \
             -isysroot "$(xcrun --sdk iphoneos --show-sdk-path)" \
             -fobjc-arc -fblocks -Wall -Wextra -Werror -Wno-unused-parameter \
-            -dynamiclib -framework UIKit -framework Foundation -framework AVFoundation \
+            -dynamiclib -framework UIKit -framework Foundation -framework AVFoundation -framework CoreGraphics \
             -install_name @rpath/SnapDuo.dylib \
             snap-duo/DuoCamera.m -o build/SnapDuo.dylib
           file build/SnapDuo.dylib
