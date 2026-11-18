@@ -295,12 +295,12 @@ static void InstallOrientation(void) {
 
 static void InstallNativeLayout(void) {
     Class cls = NSClassFromString(@"SCCameraViewfinderLayoutController");
-    SEL selector = NSSelectorFromString(@"initWithCameraView:containingView:allowsLandscapeLayout:managesTopConstraint:managesSizeConstraints:snapshotUpdater:environmentProvider:");
+    SEL selector = NSSelectorFromString(@"_syncAndEvaluate");
     __block IMP original;
-    original = Install(cls,NSStringFromSelector(selector),"@60@0:8@16@24B32B36B40@44@52",
-        ^id(id object,id camera,id parent,BOOL landscape,BOOL top,BOOL size,id updater,id environment) {
-            return ((id (*)(id,SEL,id,id,BOOL,BOOL,BOOL,id,id))original)(
-                object,selector,camera,parent,YES,top,size,updater,environment);
+    original = Install(cls,NSStringFromSelector(selector),"v16@0:8",
+        ^(id object) {
+            SetBoolIvar(object,"_allowsLandscapeLayout",YES);
+            ((void (*)(id,SEL))original)(object,selector);
         });
 }
 
