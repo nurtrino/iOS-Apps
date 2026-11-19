@@ -97,6 +97,45 @@ static void RunStorageTests(void) {
           @"Directory creation failure returned a nonexistent container");
 }
 
+@interface SCLoginErrorDetail : NSObject
+@property(nonatomic) NSUInteger subtype;
+@end
+@implementation SCLoginErrorDetail
+@end
+
+@interface SCLogInError : NSObject
+@property(nonatomic) NSInteger grpcStatusCode;
+@property(nonatomic) NSInteger protoStatusCode;
+@property(nonatomic,strong) SCLoginErrorDetail *loginErrorDetail;
+@end
+@implementation SCLogInError
+@end
+
+static void RunLoginDiagnosticTests(void) {
+    SCLogInError *error = [SCLogInError new];
+    SCLoginErrorDetail *detail = [SCLoginErrorDetail new];
+    error.grpcStatusCode = 13;
+    error.protoStatusCode = 37;
+    detail.subtype = 9;
+    error.loginErrorDetail = detail;
+    int64_t transport = 0, application = 0;
+    uint64_t category = 0;
+    Check(ReadDiagnosticInteger(error,"_grpcStatusCode","q",&transport) && transport == 13,
+          @"Transport status read incorrectly");
+    Check(ReadDiagnosticInteger(error,"_protoStatusCode","q",&application) && application == 37,
+          @"Application status read incorrectly");
+    Check(ReadDiagnosticInteger(detail,"_subtype","Q",&category) && category == 9,
+          @"Error category read incorrectly");
+    Check(!ReadDiagnosticInteger(error,"_missingField","q",&transport),@"Missing field accepted");
+    Check(!ReadDiagnosticInteger(error,"_grpcStatusCode","Q",&category),@"Wrong field encoding accepted");
+    Check(InstallLoginDiagnostics(),@"Diagnostic observer failed to install");
+    Check(error.loginErrorDetail == detail,@"Diagnostic observer replaced the error detail");
+    Check(error.grpcStatusCode == 13 && error.protoStatusCode == 37 && detail.subtype == 9,
+          @"Diagnostic observer altered error status");
+    error.loginErrorDetail = nil;
+    Check(error.loginErrorDetail == nil,@"Diagnostic observer altered a nil error detail");
+}
+
 static void RunLayoutTests(UIWindow *window) {
     InstallOverlay();
     SCCameraOverlayView *overlay = [[SCCameraOverlayView alloc] initWithFrame:CGRectMake(0,0,390,844)];
@@ -147,8 +186,8 @@ static void RunLayoutTests(UIWindow *window) {
     self.window.rootViewController = [UIViewController new];
     [self.window makeKeyAndVisible];
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSString *result = @"PASS: private storage read/write, stable sandbox path, unrelated-group passthrough, failure handling; five layouts, repeated transitions, safe areas, moved hit targets, hidden controls.";
-        @try { RunStorageTests(); RunLayoutTests(self.window); }
+        NSString *result = @"PASS: numeric login diagnostic reads and unchanged error propagation; private storage read/write, stable sandbox path, unrelated-group passthrough, failure handling; five layouts, repeated transitions, safe areas, moved hit targets, hidden controls.";
+        @try { RunLoginDiagnosticTests(); RunStorageTests(); RunLayoutTests(self.window); }
         @catch (NSException *error) { result = [@"FAIL: " stringByAppendingString:error.reason]; }
         NSURL *documents = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
         [result writeToURL:[documents URLByAppendingPathComponent:@"result.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];

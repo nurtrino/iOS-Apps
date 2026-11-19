@@ -81,6 +81,42 @@ static BOOL InstallPrivateGroupStorage(Class cls) {
     return original != NULL;
 }
 
+static BOOL ReadDiagnosticInteger(id object, const char *name, const char *type, void *value) {
+    if (!object) return NO;
+    Ivar ivar = class_getInstanceVariable(object_getClass(object), name);
+    if (!ivar || strcmp(ivar_getTypeEncoding(ivar), type)) return NO;
+    const uint8_t *bytes = (__bridge const void *)object;
+    memcpy(value, bytes + ivar_getOffset(ivar), sizeof(uint64_t));
+    return YES;
+}
+
+// Observe existing error objects only. Do not alter responses, credentials,
+// request data, error categories, or the authentication decision.
+static void LogLoginErrorStatus(id error, id detail) {
+    int64_t transport = 0, application = 0;
+    uint64_t category = 0;
+    if (ReadDiagnosticInteger(error, "_grpcStatusCode", "q", &transport)
+        && ReadDiagnosticInteger(error, "_protoStatusCode", "q", &application)
+        && ReadDiagnosticInteger(detail, "_subtype", "Q", &category)) {
+        NSLog(@"[SnapDuo] Login diagnostic: grpc=%lld proto=%lld category=%llu",
+              (long long)transport, (long long)application, (unsigned long long)category);
+    } else {
+        NSLog(@"[SnapDuo] Login diagnostic: unsupported error object layout.");
+    }
+}
+
+static BOOL InstallLoginDiagnostics(void) {
+    Class cls = NSClassFromString(@"SCLogInError");
+    SEL selector = NSSelectorFromString(@"loginErrorDetail");
+    __block IMP original;
+    original = Install(cls, NSStringFromSelector(selector), "@16@0:8", ^id(id error) {
+        id detail = ((id (*)(id,SEL))original)(error,selector);
+        LogLoginErrorStatus(error,detail);
+        return detail;
+    });
+    return original != NULL;
+}
+
 static void EnableFlag(NSString *className, NSString *name, BOOL classMethod) {
     Class cls = NSClassFromString(className);
     if (classMethod) cls = object_getClass(cls);
@@ -350,6 +386,10 @@ __attribute__((constructor)) static void InitializeSnapDuo(void) {
         if ([info[@"SnapDuoPrivateAppGroupStorage"] boolValue]) {
             BOOL installed = InstallPrivateGroupStorage(NSFileManager.class);
             NSLog(@"[SnapDuo] v0.2 private storage adapter %@.", installed ? @"installed" : @"not installed");
+        }
+        if ([info[@"SnapDuoLoginDiagnostics"] boolValue]) {
+            BOOL installed = InstallLoginDiagnostics();
+            NSLog(@"[SnapDuo] v0.3 numeric login diagnostics %@.", installed ? @"installed" : @"not installed");
         }
         EnableFlag(@"SCCameraSimpleUIFeatureGatingConfigurationImpl",@"runtimeViewfinderSizingEnabled",NO);
         EnableFlag(@"SCCameraViewController",@"_runtimeViewfinderSizingEnabled",NO);
