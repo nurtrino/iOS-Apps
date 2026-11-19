@@ -52,6 +52,51 @@ static void Check(BOOL condition, NSString *message) {
     if (!condition) @throw [NSException exceptionWithName:@"LayoutTest" reason:message userInfo:nil];
 }
 
+@interface DuoStorageTestManager : NSFileManager
+@property(nonatomic) NSUInteger nativeGroupCalls;
+@property(nonatomic) BOOL failDirectoryCreation;
+@end
+@implementation DuoStorageTestManager
+- (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)identifier {
+    self.nativeGroupCalls++;
+    return [NSURL fileURLWithPath:@"/native-group-result" isDirectory:YES];
+}
+- (BOOL)createDirectoryAtURL:(NSURL *)url withIntermediateDirectories:(BOOL)intermediate
+                 attributes:(NSDictionary<NSFileAttributeKey,id> *)attributes error:(NSError **)error {
+    if (self.failDirectoryCreation) {
+        if (error) *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileWriteNoPermissionError userInfo:nil];
+        return NO;
+    }
+    return [super createDirectoryAtURL:url withIntermediateDirectories:intermediate attributes:attributes error:error];
+}
+@end
+
+static void RunStorageTests(void) {
+    Check(InstallPrivateGroupStorage(DuoStorageTestManager.class), @"Storage adapter failed to install");
+    DuoStorageTestManager *manager = [DuoStorageTestManager new];
+    NSURL *group = [manager containerURLForSecurityApplicationGroupIdentifier:@"group.snapchat.picaboo"];
+    Check(group != nil, @"Missing private storage directory");
+    NSString *home = [NSHomeDirectory() stringByResolvingSymlinksInPath];
+    Check([[group.path stringByResolvingSymlinksInPath] hasPrefix:[home stringByAppendingString:@"/"]],
+          @"Private storage escaped the application's container");
+    Check(manager.nativeGroupCalls == 0, @"Target group still requested an unavailable entitlement");
+    NSURL *file = [group URLByAppendingPathComponent:[NSString stringWithFormat:@"fixture-%@.txt",NSUUID.UUID.UUIDString]];
+    NSError *error = nil;
+    Check([@"storage-round-trip" writeToURL:file atomically:YES encoding:NSUTF8StringEncoding error:&error],
+          @"Private storage write failed");
+    Check([[NSString stringWithContentsOfURL:file encoding:NSUTF8StringEncoding error:&error] isEqual:@"storage-round-trip"],
+          @"Private storage read failed");
+    Check([[manager containerURLForSecurityApplicationGroupIdentifier:@"group.snapchat.picaboo"] isEqual:group],
+          @"Repeated group requests changed directory");
+    Check([manager removeItemAtURL:file error:&error], @"Fixture file cleanup failed");
+    NSURL *other = [manager containerURLForSecurityApplicationGroupIdentifier:@"group.unrelated.example"];
+    Check([other.path isEqual:@"/native-group-result"] && manager.nativeGroupCalls == 1,
+          @"Unrelated group lookup changed");
+    manager.failDirectoryCreation = YES;
+    Check([manager containerURLForSecurityApplicationGroupIdentifier:@"group.snapchat.picaboo"] == nil,
+          @"Directory creation failure returned a nonexistent container");
+}
+
 static void RunLayoutTests(UIWindow *window) {
     InstallOverlay();
     SCCameraOverlayView *overlay = [[SCCameraOverlayView alloc] initWithFrame:CGRectMake(0,0,390,844)];
@@ -102,8 +147,8 @@ static void RunLayoutTests(UIWindow *window) {
     self.window.rootViewController = [UIViewController new];
     [self.window makeKeyAndVisible];
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSString *result = @"PASS: five layouts, repeated transitions, safe areas, moved hit targets, hidden controls.";
-        @try { RunLayoutTests(self.window); }
+        NSString *result = @"PASS: private storage read/write, stable sandbox path, unrelated-group passthrough, failure handling; five layouts, repeated transitions, safe areas, moved hit targets, hidden controls.";
+        @try { RunStorageTests(); RunLayoutTests(self.window); }
         @catch (NSException *error) { result = [@"FAIL: " stringByAppendingString:error.reason]; }
         NSURL *documents = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
         [result writeToURL:[documents URLByAppendingPathComponent:@"result.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];

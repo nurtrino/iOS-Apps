@@ -45,6 +45,42 @@ static IMP Install(Class cls, NSString *name, const char *encoding, id block) {
     return previous;
 }
 
+// This opt-in is a storage compatibility adaptation, not an entitlement grant.
+// Only the main app's requests for Snapchat's known group are redirected. The
+// replacement lives inside its own sandbox and cannot be shared with extensions.
+static NSURL *DuoPrivateGroupURL(NSFileManager *manager) {
+    NSURL *home = [NSURL fileURLWithPath:NSHomeDirectory() isDirectory:YES];
+    NSURL *directory = [home URLByAppendingPathComponent:
+        @"Library/Application Support/SnapDuo/PrivateAppGroup" isDirectory:YES];
+    NSError *error = nil;
+    if (![manager createDirectoryAtURL:directory withIntermediateDirectories:YES
+                            attributes:nil error:&error]) {
+        NSLog(@"[SnapDuo] Private app-group directory unavailable (error %ld).", (long)error.code);
+        return nil;
+    }
+    return directory;
+}
+
+static BOOL InstallPrivateGroupStorage(Class cls) {
+    SEL selector = @selector(containerURLForSecurityApplicationGroupIdentifier:);
+    __block IMP original;
+    original = Install(cls, NSStringFromSelector(selector), "@24@0:8@16",
+        ^NSURL *(NSFileManager *manager, NSString *identifier) {
+            if ([identifier isEqualToString:@"group.snapchat.picaboo"]) {
+                NSURL *directory = DuoPrivateGroupURL(manager);
+                if (directory) {
+                    static dispatch_once_t logged;
+                    dispatch_once(&logged, ^{
+                        NSLog(@"[SnapDuo] v0.2: Snapchat app-group storage resolved inside the app sandbox.");
+                    });
+                }
+                return directory;
+            }
+            return ((id (*)(id,SEL,id))original)(manager,selector,identifier);
+        });
+    return original != NULL;
+}
+
 static void EnableFlag(NSString *className, NSString *name, BOOL classMethod) {
     Class cls = NSClassFromString(className);
     if (classMethod) cls = object_getClass(cls);
@@ -311,6 +347,10 @@ __attribute__((constructor)) static void InitializeSnapDuo(void) {
         NSDictionary *info = NSBundle.mainBundle.infoDictionary;
         if (![info[@"CFBundleVersion"] isEqual:@"14.32.0.53"]) return;
         if (![[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion){27,1,0}]) return;
+        if ([info[@"SnapDuoPrivateAppGroupStorage"] boolValue]) {
+            BOOL installed = InstallPrivateGroupStorage(NSFileManager.class);
+            NSLog(@"[SnapDuo] v0.2 private storage adapter %@.", installed ? @"installed" : @"not installed");
+        }
         EnableFlag(@"SCCameraSimpleUIFeatureGatingConfigurationImpl",@"runtimeViewfinderSizingEnabled",NO);
         EnableFlag(@"SCCameraViewController",@"_runtimeViewfinderSizingEnabled",NO);
         EnableFlag(@"SCCameraViewController",@"_viewportOrientationFixEnabled",NO);
@@ -323,6 +363,6 @@ __attribute__((constructor)) static void InitializeSnapDuo(void) {
         InstallNativeLayout();
         InstallOrientation();
         InstallOverlay();
-        NSLog(@"[SnapDuo] Camera and layout extension installed for Snapchat 14.32.0.53.");
+        NSLog(@"[SnapDuo] v0.2 camera and layout extension installed for Snapchat 14.32.0.53.");
     }
 }

@@ -111,7 +111,8 @@ def package(source, library, output):
         ]
         metadata["UIRequiresFullScreen"] = False
         metadata["MinimumOSVersion"] = "27.1"
-        metadata["SnapDuoPatchVersion"] = "0.1"
+        metadata["SnapDuoPatchVersion"] = "0.2"
+        metadata["SnapDuoPrivateAppGroupStorage"] = True
         if LIBRARY_MEMBER in original.namelist():
             raise ValueError("Input already contains SnapDuo")
         with ZipFile(temporary, "x", compression=ZIP_DEFLATED, compresslevel=3) as result:
@@ -142,6 +143,9 @@ def package(source, library, output):
             assert len(result.namelist()) == len(set(result.namelist()))
             assert result.read(MAIN) == modified
             assert result.read(LIBRARY_MEMBER) == dynamic_library
+            written_metadata = plistlib.loads(result.read(PLIST))
+            assert written_metadata["SnapDuoPatchVersion"] == "0.2"
+            assert written_metadata["SnapDuoPrivateAppGroupStorage"] is True
             assert (result.getinfo(MAIN).external_attr >> 16) & 0o111 == 0o111
             assert (result.getinfo(LIBRARY_MEMBER).external_attr >> 16) & 0o111 == 0o111
             for member in original.infolist():
@@ -157,6 +161,8 @@ def package(source, library, output):
         "input_build": "14.32.0.53",
         "signed": False,
         "device_tested": False,
+        "patch_version": "0.2",
+        "app_group_storage": "private main-app container; no extension sharing",
         "sdk_compatibility_opt_in": "27.1",
     }, indent=2))
 
